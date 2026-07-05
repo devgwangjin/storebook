@@ -753,6 +753,38 @@ body {
     background: hsla(220, 20%, 15%, 0.1);
 }
 
+.date-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+}
+
+.date-group-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    padding: 0.25rem 0.5rem 0.4rem;
+    border-bottom: 1px solid var(--border-color);
+    letter-spacing: 0.5px;
+    margin-bottom: 0.25rem;
+}
+
+.date-group-header .date-text {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.date-group-header .date-sum {
+    font-family: var(--font-display);
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
 /* List Item Card styling */
 .list-item {
     background: hsla(220, 20%, 15%, 0.4);

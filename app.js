@@ -28,12 +28,12 @@ const INITIAL_DEMO_DATA = {
     "2026-07": {
         carryOver: 560000,
         transactions: [
-            { id: "tx-demo-1", type: "income", name: "월급", amount: 2780000, category: "급여", isRecurring: true },
-            { id: "tx-demo-2", type: "income", name: "'그거' 지원금", amount: 1200000, category: "지원금", isRecurring: false },
-            { id: "tx-demo-3", type: "expense", name: "카드", amount: 537460, category: "쇼핑/카드", isRecurring: false },
-            { id: "tx-demo-4", type: "expense", name: "보험", amount: 100000, category: "보험/세금", isRecurring: true },
-            { id: "tx-demo-5", type: "expense", name: "월세", amount: 450000, category: "주거/월세", isRecurring: true },
-            { id: "tx-demo-6", type: "expense", name: "최저한도 맞추기", amount: 440000, category: "생활비", isRecurring: false }
+            { id: "tx-demo-1", type: "income", name: "월급", amount: 2780000, category: "급여", isRecurring: true, date: "2026-07-25" },
+            { id: "tx-demo-2", type: "income", name: "'그거' 지원금", amount: 1200000, category: "지원금", isRecurring: false, date: "2026-07-10" },
+            { id: "tx-demo-3", type: "expense", name: "카드", amount: 537460, category: "쇼핑/카드", isRecurring: false, date: "2026-07-15" },
+            { id: "tx-demo-4", type: "expense", name: "보험", amount: 100000, category: "보험/세금", isRecurring: true, date: "2026-07-20" },
+            { id: "tx-demo-5", type: "expense", name: "월세", amount: 450000, category: "주거/월세", isRecurring: true, date: "2026-07-01" },
+            { id: "tx-demo-6", type: "expense", name: "최저한도 맞추기", amount: 440000, category: "생활비", isRecurring: false, date: "2026-07-05" }
         ]
     }
 };
@@ -189,8 +189,31 @@ function calculateMonthBalance(yearMonthKey) {
 function updateUI() {
     const currentMonthKey = `${appState.currentYear}-${appState.currentMonth < 10 ? '0' + appState.currentMonth : appState.currentMonth}`;
     
-    // 1. 월 표시 업데이트
-    document.getElementById('current-month-display').innerText = `${appState.currentYear}년 ${appState.currentMonth < 10 ? '0' + appState.currentMonth : appState.currentMonth}월`;
+    // 1. 월 표시 업데이트 및 날짜 한계 지정
+    const yearStr = appState.currentYear;
+    const monthStr = appState.currentMonth < 10 ? '0' + appState.currentMonth : appState.currentMonth;
+    document.getElementById('current-month-display').innerText = `${yearStr}년 ${monthStr}월`;
+    
+    const dateInput = document.getElementById('entry-date');
+    const minDate = `${yearStr}-${monthStr}-01`;
+    const lastDay = new Date(appState.currentYear, appState.currentMonth, 0).getDate();
+    const maxDate = `${yearStr}-${monthStr}-${lastDay < 10 ? '0' + lastDay : lastDay}`;
+    
+    dateInput.min = minDate;
+    dateInput.max = maxDate;
+    
+    const currentVal = dateInput.value;
+    if (!currentVal || currentVal < minDate || currentVal > maxDate) {
+        const today = new Date();
+        const todayYear = today.getFullYear();
+        const todayMonth = today.getMonth() + 1;
+        if (todayYear === appState.currentYear && todayMonth === appState.currentMonth) {
+            const todayDay = today.getDate();
+            dateInput.value = `${todayYear}-${todayMonth < 10 ? '0' + todayMonth : todayMonth}-${todayDay < 10 ? '0' + todayDay : todayDay}`;
+        } else {
+            dateInput.value = minDate;
+        }
+    }
     
     // 2. 이월 잔액 동적 계산 및 이월 업데이트
     // 만약 수동 설정된 이월 잔액이 없거나 0일 때, 이전달 데이터가 있으면 이전달의 최종 잔액을 자동으로 가져옵니다.
@@ -272,7 +295,7 @@ function updateUI() {
     lucide.createIcons();
 }
 
-// 수입/지출 리스트 상세 렌더링
+// 수입/지출 리스트 상세 렌더링 (날짜별 그룹화 및 정렬)
 function renderLists(transactions) {
     const incomeList = document.getElementById('income-list');
     const expenseList = document.getElementById('expense-list');
@@ -290,20 +313,63 @@ function renderLists(transactions) {
     const showIncome = activeFilter === 'filter-all' || activeFilter === 'filter-income';
     const showExpense = activeFilter === 'filter-all' || activeFilter === 'filter-expense';
     
+    // 날짜별 그룹화 헬퍼 함수
+    const groupByDate = (txs) => {
+        const groups = {};
+        txs.forEach(tx => {
+            const dateVal = tx.date || `${appState.currentYear}-${appState.currentMonth < 10 ? '0' + appState.currentMonth : appState.currentMonth}-01`;
+            if (!groups[dateVal]) groups[dateVal] = [];
+            groups[dateVal].push(tx);
+        });
+        return groups;
+    };
+    
+    // 그룹별 렌더링 헬퍼 함수
+    const renderGroups = (container, groupedTxs, type) => {
+        // 날짜 오름차순 정렬
+        const sortedDates = Object.keys(groupedTxs).sort((a, b) => new Date(a) - new Date(b));
+        
+        sortedDates.forEach(dateStr => {
+            const dateObj = new Date(dateStr);
+            const daysOfWeek = ['일', '월', '화', '수', '목', '금', '토'];
+            const dayName = daysOfWeek[dateObj.getDay()];
+            const formattedDateText = `${dateObj.getMonth() + 1}월 ${dateObj.getDate()}일 (${dayName})`;
+            
+            // 해당 날짜의 총합 계산
+            const sum = groupedTxs[dateStr].reduce((s, t) => s + t.amount, 0);
+            
+            const dateGroupDiv = document.createElement('div');
+            dateGroupDiv.className = 'date-group';
+            
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'date-group-header';
+            headerDiv.innerHTML = `
+                <span class="date-text"><i data-lucide="calendar" class="sub-icon"></i> ${formattedDateText}</span>
+                <span class="date-sum">${type === 'income' ? '+' : '-'}${formatCurrency(sum)}</span>
+            `;
+            dateGroupDiv.appendChild(headerDiv);
+            
+            // 거래 아이템 DOM 추가
+            groupedTxs[dateStr].forEach(tx => {
+                dateGroupDiv.appendChild(createTransactionDOM(tx));
+            });
+            
+            container.appendChild(dateGroupDiv);
+        });
+    };
+    
     // 수입 목록 그리기
     if (showIncome && incomeTx.length > 0) {
-        incomeTx.forEach(tx => {
-            incomeList.appendChild(createTransactionDOM(tx));
-        });
+        const grouped = groupByDate(incomeTx);
+        renderGroups(incomeList, grouped, 'income');
     } else {
         incomeList.innerHTML = `<li class="empty-list-placeholder">수입 내역이 없습니다.</li>`;
     }
     
     // 지출 목록 그리기
     if (showExpense && expenseTx.length > 0) {
-        expenseTx.forEach(tx => {
-            expenseList.appendChild(createTransactionDOM(tx));
-        });
+        const grouped = groupByDate(expenseTx);
+        renderGroups(expenseList, grouped, 'expense');
     } else {
         expenseList.innerHTML = `<li class="empty-list-placeholder">지출 내역이 없습니다.</li>`;
     }
@@ -419,6 +485,7 @@ function handleFormSubmit(e) {
     e.preventDefault();
     
     const type = document.getElementById('entry-type').value;
+    const dateInput = document.getElementById('entry-date');
     const nameInput = document.getElementById('entry-name');
     const amountInput = document.getElementById('entry-amount');
     const categorySelect = document.getElementById('entry-category');
@@ -427,8 +494,8 @@ function handleFormSubmit(e) {
     const rawAmount = amountInput.value.replace(/,/g, '');
     const amount = parseInt(rawAmount, 10);
     
-    if (!nameInput.value.trim() || isNaN(amount) || amount <= 0) {
-        alert("올바른 항목 이름과 금액을 입력해 주세요.");
+    if (!nameInput.value.trim() || isNaN(amount) || amount <= 0 || !dateInput.value) {
+        alert("올바른 날짜, 항목 이름, 금액을 입력해 주세요.");
         return;
     }
     
@@ -438,7 +505,8 @@ function handleFormSubmit(e) {
         name: nameInput.value.trim(),
         amount: amount,
         category: categorySelect.value,
-        isRecurring: isRecurringCheckbox.checked
+        isRecurring: isRecurringCheckbox.checked,
+        date: dateInput.value
     };
     
     const monthData = getMonthData(appState.currentYear, appState.currentMonth);
@@ -448,7 +516,7 @@ function handleFormSubmit(e) {
     saveLocalData();
     updateUI();
     
-    // 폼 초기화 (타입 탭과 카테고리는 유지)
+    // 폼 초기화 (날짜, 타입 탭, 카테고리는 유지)
     nameInput.value = '';
     amountInput.value = '';
     isRecurringCheckbox.checked = false;
