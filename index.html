@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>storebook - 로컬 개인 가계부</title>
+    <meta name="description" content="나만의 데이터를 안전하게 보관하는 프리미엄 다크 테마 로컬 가계부, storebook">
+    
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons CDN -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <div class="logo-area">
+                <i data-lucide="book-open" class="logo-icon"></i>
+                <h1 id="app-title" class="logo-text">storebook</h1>
+            </div>
+            
+            <div class="month-selector">
+                <button id="prev-month-btn" class="icon-btn" aria-label="이전 달">
+                    <i data-lucide="chevron-left"></i>
+                </button>
+                <span id="current-month-display" class="current-month">2026년 07월</span>
+                <button id="next-month-btn" class="icon-btn" aria-label="다음 달">
+                    <i data-lucide="chevron-right"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Summary Cards Grid -->
+        <section class="summary-grid" aria-label="재정 요약">
+            <!-- Carry-over Balance Card -->
+            <div class="summary-card carry-over">
+                <div class="card-header">
+                    <span class="card-title">이월 잔액</span>
+                    <i data-lucide="arrow-right-left" class="card-icon text-carry-over"></i>
+                </div>
+                <div class="card-value" id="carry-over-balance">0원</div>
+                <div class="card-footer">이전 달에서 이월된 금액</div>
+            </div>
+            
+            <!-- Total Income Card -->
+            <div class="summary-card income">
+                <div class="card-header">
+                    <span class="card-title">총 수입</span>
+                    <i data-lucide="trending-up" class="card-icon text-income"></i>
+                </div>
+                <div class="card-value" id="total-income">0원</div>
+                <div class="card-footer" id="income-comparison">이번 달 예상 수입</div>
+            </div>
+            
+            <!-- Total Expense Card -->
+            <div class="summary-card expense">
+                <div class="card-header">
+                    <span class="card-title">총 지출</span>
+                    <i data-lucide="trending-down" class="card-icon text-expense"></i>
+                </div>
+                <div class="card-value" id="total-expense">0원</div>
+                <div class="card-footer" id="expense-comparison">이번 달 지출 합계</div>
+            </div>
+            
+            <!-- Remaining Balance Card -->
+            <div class="summary-card balance">
+                <div class="card-header">
+                    <span class="card-title">최종 잔액</span>
+                    <i data-lucide="wallet" class="card-icon text-balance"></i>
+                </div>
+                <div class="card-value" id="remaining-balance">0원</div>
+                <div class="card-footer" id="balance-percentage">수입의 100% 남음</div>
+            </div>
+        </section>
+
+        <!-- Budget Progress Bar -->
+        <section class="budget-progress-section" aria-label="예산 달성도">
+            <div class="progress-info">
+                <span class="progress-label">수입 대비 지출 비율</span>
+                <span id="progress-percentage" class="progress-value">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div id="budget-progress-bar" class="progress-bar" style="width: 0%;"></div>
+            </div>
+        </section>
+
+        <!-- Main Content Layout -->
+        <div class="main-layout">
+            <!-- Left Side: Forms -->
+            <aside class="sidebar">
+                <!-- Data Entry Card -->
+                <div class="glass-card entry-card">
+                    <div class="tabs">
+                        <button id="tab-expense" class="tab-btn active">지출 추가</button>
+                        <button id="tab-income" class="tab-btn">수입 추가</button>
+                    </div>
+                    
+                    <form id="transaction-form" class="entry-form">
+                        <input type="hidden" id="entry-type" value="expense">
+                        
+                        <div class="form-group">
+                            <label for="entry-name">항목 이름</label>
+                            <input type="text" id="entry-name" placeholder="예: 월세, 월급, 카드값" required autocomplete="off">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="entry-amount">금액 (원)</label>
+                            <div class="amount-input-wrapper">
+                                <input type="text" id="entry-amount" placeholder="0" required autocomplete="off">
+                                <span class="currency-label">원</span>
+                            </div>
+                            <span id="amount-korean-word" class="amount-helper">영 원</span>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="entry-category">카테고리</label>
+                            <select id="entry-category" required>
+                                <!-- Categories will be dynamically updated based on entry-type -->
+                            </select>
+                        </div>
+                        
+                        <div class="form-group checkbox-group">
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="entry-is-recurring">
+                                <span class="slider"></span>
+                            </label>
+                            <span class="checkbox-label">매월 반복되는 고정 항목</span>
+                        </div>
+                        
+                        <button type="submit" id="submit-entry-btn" class="primary-btn">
+                            <i data-lucide="plus-circle" class="btn-icon"></i>
+                            <span id="submit-btn-text">지출 추가하기</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Backup & Storage Management -->
+                <div class="glass-card system-card">
+                    <h2 class="card-subtitle"><i data-lucide="database" class="sub-icon"></i>데이터 관리</h2>
+                    <div class="system-actions">
+                        <button id="export-btn" class="secondary-btn">
+                            <i data-lucide="download"></i>
+                            JSON 파일로 백업
+                        </button>
+                        <label for="import-file-input" class="secondary-btn file-label">
+                            <i data-lucide="upload"></i>
+                            백업 파일 복원
+                        </label>
+                        <input type="file" id="import-file-input" accept=".json" style="display: none;">
+                        <button id="clear-all-btn" class="danger-btn">
+                            <i data-lucide="trash-2"></i>
+                            전체 초기화
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Right Side: Lists & Visual Charts -->
+            <main class="content-area">
+                <!-- Transaction Lists Card -->
+                <div class="glass-card list-card">
+                    <div class="list-section-header">
+                        <h2 class="section-title"><i data-lucide="list-ordered" class="sub-icon"></i>내역 리스트</h2>
+                        <div class="list-filters">
+                            <button id="filter-all" class="filter-btn active">전체</button>
+                            <button id="filter-income" class="filter-btn">수입</button>
+                            <button id="filter-expense" class="filter-btn">지출</button>
+                        </div>
+                    </div>
+                    
+                    <div class="lists-wrapper">
+                        <!-- Income Section -->
+                        <div id="income-list-container" class="list-container">
+                            <h3 class="list-type-title text-income">수입 내역</h3>
+                            <ul id="income-list" class="transaction-list">
+                                <!-- Dynamic content -->
+                                <li class="empty-list-placeholder">수입 내역이 없습니다.</li>
+                            </ul>
+                        </div>
+
+                        <!-- Expense Section -->
+                        <div id="expense-list-container" class="list-container">
+                            <h3 class="list-type-title text-expense">지출 내역</h3>
+                            <ul id="expense-list" class="transaction-list">
+                                <!-- Dynamic content -->
+                                <li class="empty-list-placeholder">지출 내역이 없습니다.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    
+    <script src="app.js"></script>
+</body>
+</html>
