@@ -327,6 +327,27 @@ body {
     border-color: var(--border-color-hover);
 }
 
+.carry-over-inline-input {
+    width: 100%;
+    background: hsla(220, 20%, 6%, 0.6) !important;
+    border: 1px dashed var(--color-carry-over) !important;
+    color: var(--text-primary) !important;
+    font-size: 1.6rem !important;
+    font-weight: 700 !important;
+    font-family: var(--font-display) !important;
+    padding: 0.15rem 0.5rem !important;
+    border-radius: var(--radius-sm) !important;
+    outline: none !important;
+    text-align: left;
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.1);
+}
+
+.carry-over-inline-input:focus {
+    border-style: solid !important;
+    border-color: var(--color-carry-over) !important;
+    box-shadow: 0 0 15px var(--color-carry-over-glow) !important;
+}
+
 .card-header {
     display: flex;
     justify-content: space-between;

@@ -39,13 +39,13 @@
         <!-- Summary Cards Grid -->
         <section class="summary-grid" aria-label="재정 요약">
             <!-- Carry-over Balance Card -->
-            <div class="summary-card carry-over">
+            <div class="summary-card carry-over" id="carry-over-card" style="cursor: pointer;" title="클릭하여 이월 잔액 수정">
                 <div class="card-header">
                     <span class="card-title">이월 잔액</span>
-                    <i data-lucide="arrow-right-left" class="card-icon text-carry-over"></i>
+                    <i data-lucide="edit-3" class="card-icon text-carry-over"></i>
                 </div>
                 <div class="card-value" id="carry-over-balance">0원</div>
-                <div class="card-footer">이전 달에서 이월된 금액</div>
+                <div class="card-footer" id="carry-over-footer">클릭하여 수정 가능</div>
             </div>
             
             <!-- Total Income Card -->

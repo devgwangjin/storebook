@@ -227,6 +227,14 @@ function updateUI() {
     
     const carryOver = monthData.carryOver || 0;
     
+    // 이월 잔액 풋터 텍스트 업데이트
+    const carryOverFooter = document.getElementById('carry-over-footer');
+    if (appState.data[prevKey]) {
+        carryOverFooter.innerText = "이전 달에서 자동 이월됨";
+    } else {
+        carryOverFooter.innerText = "클릭하여 수동 수정 가능";
+    }
+    
     // 수입 및 지출 합계 연산
     const transactions = monthData.transactions || [];
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
@@ -663,6 +671,65 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('export-btn').addEventListener('click', exportData);
     document.getElementById('import-file-input').addEventListener('change', importData);
     document.getElementById('clear-all-btn').addEventListener('click', clearAllData);
+    
+    // 이월 잔액 카드 클릭 시 인라인 입력창 전환 및 수정
+    const carryOverCard = document.getElementById('carry-over-card');
+    const carryOverValue = document.getElementById('carry-over-balance');
+    
+    carryOverCard.addEventListener('click', () => {
+        if (carryOverCard.classList.contains('editing')) return;
+        
+        carryOverCard.classList.add('editing');
+        const monthData = getMonthData(appState.currentYear, appState.currentMonth);
+        const rawVal = monthData.carryOver || 0;
+        
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'carry-over-inline-input';
+        input.value = rawVal.toLocaleString('ko-KR');
+        
+        const originalText = carryOverValue.innerText;
+        carryOverValue.innerHTML = '';
+        carryOverValue.appendChild(input);
+        input.focus();
+        input.select();
+        
+        // 클릭 이벤트 버블링 방지 (input 클릭 시 카드가 다시 click 이벤트 받는 것 방지)
+        input.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        
+        input.addEventListener('input', (e) => {
+            let value = e.target.value.replace(/[^0-9]/g, '');
+            if (value === '') {
+                e.target.value = '';
+            } else {
+                e.target.value = parseInt(value, 10).toLocaleString('ko-KR');
+            }
+        });
+        
+        const saveValue = () => {
+            let rawVal = input.value.replace(/,/g, '');
+            let newVal = parseInt(rawVal, 10);
+            if (isNaN(newVal) || newVal < 0) newVal = 0;
+            
+            monthData.carryOver = newVal;
+            saveLocalData();
+            carryOverCard.classList.remove('editing');
+            updateUI();
+        };
+        
+        input.addEventListener('blur', saveValue);
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                input.blur();
+            } else if (e.key === 'Escape') {
+                carryOverCard.classList.remove('editing');
+                carryOverValue.innerText = originalText;
+                updateUI();
+            }
+        });
+    });
     
     // 3. 최초 화면 렌더링
     updateUI();
