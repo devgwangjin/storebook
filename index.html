@@ -145,6 +145,28 @@
                     </form>
                 </div>
 
+                <!-- Category Management Card -->
+                <div class="glass-card system-card">
+                    <h2 class="card-subtitle"><i data-lucide="tag" class="sub-icon"></i>카테고리 관리</h2>
+                    <div class="category-manager-content">
+                        <div class="category-tabs">
+                            <button id="cat-tab-expense" class="mini-tab-btn active">지출</button>
+                            <button id="cat-tab-income" class="mini-tab-btn">수입</button>
+                        </div>
+                        
+                        <ul id="category-list" class="mini-category-list">
+                            <!-- Dynamic category list -->
+                        </ul>
+                        
+                        <form id="add-category-form" class="mini-add-form">
+                            <input type="text" id="new-category-name" placeholder="새 카테고리 (예: 도서 📚)" required autocomplete="off">
+                            <button type="submit" class="mini-add-btn" aria-label="추가">
+                                <i data-lucide="plus"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
                 <!-- Backup & Storage Management -->
                 <div class="glass-card system-card">
                     <h2 class="card-subtitle"><i data-lucide="database" class="sub-icon"></i>데이터 관리</h2>

@@ -42,7 +42,13 @@ const INITIAL_DEMO_DATA = {
 let appState = {
     currentYear: 2026,
     currentMonth: 7, // 1 ~ 12
-    data: {} // LocalStorage에서 로드됨
+    data: {}, // LocalStorage에서 로드됨
+    incomeCategories: [],
+    expenseCategories: []
+};
+
+let categoryManagerState = {
+    activeTab: 'expense' // 'expense' or 'income'
 };
 
 // ==========================================================================
@@ -128,7 +134,32 @@ function getNextMonthString(yearMonthStr) {
 // 3. 데이터 동기화 및 LocalStorage 관리
 // ==========================================================================
 
+function loadCategories() {
+    const storedIncome = localStorage.getItem('storebook_income_categories');
+    const storedExpense = localStorage.getItem('storebook_expense_categories');
+    
+    if (storedIncome) {
+        appState.incomeCategories = JSON.parse(storedIncome);
+    } else {
+        appState.incomeCategories = [...DEFAULT_INCOME_CATEGORIES];
+        localStorage.setItem('storebook_income_categories', JSON.stringify(appState.incomeCategories));
+    }
+    
+    if (storedExpense) {
+        appState.expenseCategories = JSON.parse(storedExpense);
+    } else {
+        appState.expenseCategories = [...DEFAULT_EXPENSE_CATEGORIES];
+        localStorage.setItem('storebook_expense_categories', JSON.stringify(appState.expenseCategories));
+    }
+}
+
+function saveCategories() {
+    localStorage.setItem('storebook_income_categories', JSON.stringify(appState.incomeCategories));
+    localStorage.setItem('storebook_expense_categories', JSON.stringify(appState.expenseCategories));
+}
+
 function loadLocalData() {
+    loadCategories();
     const stored = localStorage.getItem('storebook_data');
     if (stored) {
         try {
@@ -390,7 +421,7 @@ function createTransactionDOM(tx) {
     li.dataset.id = tx.id;
     
     // 카테고리 매핑 레이블 구하기
-    const categoryConfig = (tx.type === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES)
+    const categoryConfig = (tx.type === 'income' ? appState.incomeCategories : appState.expenseCategories)
         .find(c => c.value === tx.category);
     const categoryLabel = categoryConfig ? categoryConfig.label : tx.category;
     
@@ -433,7 +464,7 @@ function populateCategories(type) {
     const categorySelect = document.getElementById('entry-category');
     categorySelect.innerHTML = '';
     
-    const categories = type === 'income' ? DEFAULT_INCOME_CATEGORIES : DEFAULT_EXPENSE_CATEGORIES;
+    const categories = type === 'income' ? appState.incomeCategories : appState.expenseCategories;
     categories.forEach(cat => {
         const option = document.createElement('option');
         option.value = cat.value;
@@ -551,7 +582,83 @@ function deleteTransaction(id) {
             saveLocalData();
             updateUI();
         }
+}
+
+// 카테고리 관리자 화면 렌더링
+function renderCategoryManager() {
+    const list = document.getElementById('category-list');
+    if (!list) return;
+    list.innerHTML = '';
+    
+    const categories = categoryManagerState.activeTab === 'expense' 
+        ? appState.expenseCategories 
+        : appState.incomeCategories;
+        
+    categories.forEach(cat => {
+        const li = document.createElement('li');
+        li.className = 'mini-category-item';
+        li.innerHTML = `
+            <span>${cat.label}</span>
+            <button class="delete-cat-btn" aria-label="삭제">
+                <i data-lucide="x"></i>
+            </button>
+        `;
+        
+        li.querySelector('.delete-cat-btn').addEventListener('click', () => {
+            deleteCategory(cat.value);
+        });
+        
+        list.appendChild(li);
+    });
+    
+    lucide.createIcons();
+}
+
+// 카테고리 삭제
+function deleteCategory(value) {
+    if (categoryManagerState.activeTab === 'expense') {
+        appState.expenseCategories = appState.expenseCategories.filter(c => c.value !== value);
+    } else {
+        appState.incomeCategories = appState.incomeCategories.filter(c => c.value !== value);
     }
+    saveCategories();
+    
+    // 지출/수입 등록용 폼 셀렉트 박스 갱신
+    const currentFormType = document.getElementById('entry-type').value;
+    populateCategories(currentFormType);
+    
+    renderCategoryManager();
+    updateUI();
+}
+
+// 카테고리 추가
+function addCategory(label) {
+    const emojiRegex = /[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF]/g;
+    const value = label.trim().replace(emojiRegex, '').trim() || 'cat-' + Date.now();
+    
+    const newCat = { value: value, label: label.trim() };
+    
+    if (categoryManagerState.activeTab === 'expense') {
+        if (appState.expenseCategories.some(c => c.label === label.trim() || c.value === value)) {
+            alert("이미 존재하는 카테고리 이름 또는 값입니다.");
+            return;
+        }
+        appState.expenseCategories.push(newCat);
+    } else {
+        if (appState.incomeCategories.some(c => c.label === label.trim() || c.value === value)) {
+            alert("이미 존재하는 카테고리 이름 또는 값입니다.");
+            return;
+        }
+        appState.incomeCategories.push(newCat);
+    }
+    saveCategories();
+    
+    // 지출/수입 등록용 폼 셀렉트 박스 갱신
+    const currentFormType = document.getElementById('entry-type').value;
+    populateCategories(currentFormType);
+    
+    renderCategoryManager();
+    updateUI();
 }
 
 // ==========================================================================
@@ -730,6 +837,40 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     });
+    
+    // 카테고리 관리 탭 전환 및 추가/삭제 기능 연결
+    const catTabExpense = document.getElementById('cat-tab-expense');
+    const catTabIncome = document.getElementById('cat-tab-income');
+    const addCatForm = document.getElementById('add-category-form');
+    const newCatInput = document.getElementById('new-category-name');
+    
+    catTabExpense.addEventListener('click', () => {
+        categoryManagerState.activeTab = 'expense';
+        catTabExpense.classList.add('active');
+        catTabIncome.classList.remove('active');
+        newCatInput.placeholder = "새 지출 카테고리 (예: 도서 📚)";
+        renderCategoryManager();
+    });
+    
+    catTabIncome.addEventListener('click', () => {
+        categoryManagerState.activeTab = 'income';
+        catTabIncome.classList.add('active');
+        catTabExpense.classList.remove('active');
+        newCatInput.placeholder = "새 수입 카테고리 (예: 보너스 🎁)";
+        renderCategoryManager();
+    });
+    
+    addCatForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const newLabel = newCatInput.value.trim();
+        if (newLabel) {
+            addCategory(newLabel);
+            newCatInput.value = '';
+        }
+    });
+    
+    // 카테고리 관리자 초기 로드
+    renderCategoryManager();
     
     // 3. 최초 화면 렌더링
     updateUI();
