@@ -603,6 +603,7 @@ function deleteTransaction(id) {
             saveLocalData();
             updateUI();
         }
+    }
 }
 
 // 카테고리 관리자 화면 렌더링
