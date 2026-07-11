@@ -349,6 +349,9 @@ function updateUI() {
     // 4. 내역 리스트 렌더링
     renderLists(transactions);
     
+    // 5. 카테고리별 지출 통계 렌더링
+    renderCategoryBreakdown(transactions);
+    
     // Lucide 아이콘 다시 그리기
     if (typeof lucide !== 'undefined') {
         lucide.createIcons();
@@ -433,6 +436,62 @@ function renderLists(transactions) {
     } else {
         expenseList.innerHTML = `<li class="empty-list-placeholder">지출 내역이 없습니다.</li>`;
     }
+}
+
+// 카테고리별 지출 통계 렌더링
+function renderCategoryBreakdown(transactions) {
+    const container = document.getElementById('category-breakdown-list');
+    const totalLabel = document.getElementById('breakdown-total-expense');
+    if (!container) return;
+    container.innerHTML = '';
+    
+    // 지출 거래 항목만 필터링
+    const expenseTx = transactions.filter(t => t.type === 'expense');
+    const totalExpense = expenseTx.reduce((sum, t) => sum + t.amount, 0);
+    
+    if (totalLabel) {
+        totalLabel.innerText = `지출 합계: ${formatCurrency(totalExpense)}`;
+    }
+    
+    if (expenseTx.length === 0) {
+        container.innerHTML = `<div class="empty-list-placeholder" style="grid-column: 1 / -1; padding: 2rem 0;">지출 내역이 없어 통계를 표시할 수 없습니다.</div>`;
+        return;
+    }
+    
+    // 카테고리별 합산 계산
+    const catSums = {};
+    expenseTx.forEach(tx => {
+        const cat = tx.category;
+        catSums[cat] = (catSums[cat] || 0) + tx.amount;
+    });
+    
+    // 금액 내림차순으로 카테고리 정렬
+    const sortedCats = Object.keys(catSums).sort((a, b) => catSums[b] - catSums[a]);
+    
+    sortedCats.forEach(catKey => {
+        const amt = catSums[catKey];
+        const pct = totalExpense > 0 ? Math.round((amt / totalExpense) * 100) : 0;
+        
+        // 카테고리 매핑 레이블 구하기
+        const categoryConfig = appState.expenseCategories.find(c => c.value === catKey);
+        const categoryLabel = categoryConfig ? categoryConfig.label : catKey;
+        
+        const item = document.createElement('div');
+        item.className = 'breakdown-item';
+        item.innerHTML = `
+            <div class="breakdown-info">
+                <span class="breakdown-label">${categoryLabel}</span>
+                <div class="breakdown-value-wrapper">
+                    <span class="breakdown-amt">${formatCurrency(amt)}</span>
+                    <span class="breakdown-pct">(${pct}%)</span>
+                </div>
+            </div>
+            <div class="breakdown-progress-container">
+                <div class="breakdown-progress" style="width: ${pct}%;"></div>
+            </div>
+        `;
+        container.appendChild(item);
+    });
 }
 
 // 각 항목 DOM 구조 생성
