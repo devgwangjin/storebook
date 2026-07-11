@@ -3,6 +3,11 @@
  * LocalStorage 연동 및 동적 렌더링 로직
  */
 
+// 디버깅용 전역 에러 리스너 (사용자 화면에 에러 팝업 표시)
+window.addEventListener('error', function(e) {
+    alert('가계부 앱 내부 에러 발생:\n' + e.message + '\n파일: ' + e.filename + '\n라인: ' + e.lineno);
+});
+
 // ==========================================================================
 // 1. 초기 데이터 모델 및 상수 정의
 // ==========================================================================
@@ -139,14 +144,28 @@ function loadCategories() {
     const storedExpense = localStorage.getItem('storebook_expense_categories');
     
     if (storedIncome) {
-        appState.incomeCategories = JSON.parse(storedIncome);
+        try {
+            appState.incomeCategories = JSON.parse(storedIncome);
+            if (!Array.isArray(appState.incomeCategories)) throw new Error("Not an array");
+        } catch (e) {
+            console.error("수입 카테고리 로드 에러:", e);
+            appState.incomeCategories = [...DEFAULT_INCOME_CATEGORIES];
+            localStorage.setItem('storebook_income_categories', JSON.stringify(appState.incomeCategories));
+        }
     } else {
         appState.incomeCategories = [...DEFAULT_INCOME_CATEGORIES];
         localStorage.setItem('storebook_income_categories', JSON.stringify(appState.incomeCategories));
     }
     
     if (storedExpense) {
-        appState.expenseCategories = JSON.parse(storedExpense);
+        try {
+            appState.expenseCategories = JSON.parse(storedExpense);
+            if (!Array.isArray(appState.expenseCategories)) throw new Error("Not an array");
+        } catch (e) {
+            console.error("지출 카테고리 로드 에러:", e);
+            appState.expenseCategories = [...DEFAULT_EXPENSE_CATEGORIES];
+            localStorage.setItem('storebook_expense_categories', JSON.stringify(appState.expenseCategories));
+        }
     } else {
         appState.expenseCategories = [...DEFAULT_EXPENSE_CATEGORIES];
         localStorage.setItem('storebook_expense_categories', JSON.stringify(appState.expenseCategories));
@@ -331,7 +350,9 @@ function updateUI() {
     renderLists(transactions);
     
     // Lucide 아이콘 다시 그리기
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 // 수입/지출 리스트 상세 렌더링 (날짜별 그룹화 및 정렬)
@@ -611,7 +632,9 @@ function renderCategoryManager() {
         list.appendChild(li);
     });
     
-    lucide.createIcons();
+    if (typeof lucide !== 'undefined') {
+        lucide.createIcons();
+    }
 }
 
 // 카테고리 삭제
