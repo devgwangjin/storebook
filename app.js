@@ -43,13 +43,13 @@ const INITIAL_DEMO_DATA = {
     }
 };
 
-// State 관리 변수
 let appState = {
     currentYear: 2026,
     currentMonth: 7, // 1 ~ 12
     data: {}, // LocalStorage에서 로드됨
     incomeCategories: [],
-    expenseCategories: []
+    expenseCategories: [],
+    breakdownViewMode: 'grid' // 'grid' or 'bar'
 };
 
 let categoryManagerState = {
@@ -191,6 +191,15 @@ function loadLocalData() {
         // 데이터가 없으면 노션 캡처 바탕의 데모 데이터를 초기 적재
         appState.data = { ...INITIAL_DEMO_DATA };
         saveLocalData();
+    }
+    
+    // 차트 뷰 모드 설정 로드
+    const mode = localStorage.getItem('storebook_breakdown_view_mode');
+    if (mode === 'grid' || mode === 'bar') {
+        appState.breakdownViewMode = mode;
+    } else {
+        appState.breakdownViewMode = 'grid';
+        localStorage.setItem('storebook_breakdown_view_mode', 'grid');
     }
 }
 
@@ -453,7 +462,21 @@ function renderCategoryBreakdown(transactions) {
         totalLabel.innerText = `지출 합계: ${formatCurrency(totalExpense)}`;
     }
     
+    // 뷰 모드 토글 활성화 표시 연동
+    const toggleGridBtn = document.getElementById('toggle-view-grid');
+    const toggleBarBtn = document.getElementById('toggle-view-bar');
+    if (toggleGridBtn && toggleBarBtn) {
+        if (appState.breakdownViewMode === 'bar') {
+            toggleGridBtn.classList.remove('active');
+            toggleBarBtn.classList.add('active');
+        } else {
+            toggleGridBtn.classList.add('active');
+            toggleBarBtn.classList.remove('active');
+        }
+    }
+    
     if (expenseTx.length === 0) {
+        container.className = 'category-breakdown-grid';
         container.innerHTML = `<div class="empty-list-placeholder" style="grid-column: 1 / -1; padding: 2rem 0;">지출 내역이 없어 통계를 표시할 수 없습니다.</div>`;
         return;
     }
@@ -468,30 +491,61 @@ function renderCategoryBreakdown(transactions) {
     // 금액 내림차순으로 카테고리 정렬
     const sortedCats = Object.keys(catSums).sort((a, b) => catSums[b] - catSums[a]);
     
-    sortedCats.forEach(catKey => {
-        const amt = catSums[catKey];
-        const pct = totalExpense > 0 ? Math.round((amt / totalExpense) * 100) : 0;
+    if (appState.breakdownViewMode === 'bar') {
+        // 막대그래프형 (Vertical Bar Chart) 렌더링
+        container.className = 'category-breakdown-bar-chart';
         
-        // 카테고리 매핑 레이블 구하기
-        const categoryConfig = appState.expenseCategories.find(c => c.value === catKey);
-        const categoryLabel = categoryConfig ? categoryConfig.label : catKey;
+        // 최대 지출 카테고리 금액 (높이 비율 산정용)
+        const maxAmt = Math.max(...Object.values(catSums));
         
-        const item = document.createElement('div');
-        item.className = 'breakdown-item';
-        item.innerHTML = `
-            <div class="breakdown-info">
-                <span class="breakdown-label">${categoryLabel}</span>
-                <div class="breakdown-value-wrapper">
-                    <span class="breakdown-amt">${formatCurrency(amt)}</span>
-                    <span class="breakdown-pct">(${pct}%)</span>
+        sortedCats.forEach(catKey => {
+            const amt = catSums[catKey];
+            const pct = totalExpense > 0 ? Math.round((amt / totalExpense) * 100) : 0;
+            // 툴팁 등을 고려하여 최대 높이를 80%로 조율
+            const barHeight = maxAmt > 0 ? Math.max(4, Math.round((amt / maxAmt) * 80)) + "%" : "4%";
+            
+            const categoryConfig = appState.expenseCategories.find(c => c.value === catKey);
+            const categoryLabel = categoryConfig ? categoryConfig.label : catKey;
+            
+            const item = document.createElement('div');
+            item.className = 'bar-item';
+            item.innerHTML = `
+                <div class="bar-wrapper">
+                    <span class="bar-value-tooltip">${formatCurrency(amt)} (${pct}%)</span>
+                    <div class="bar-bar" style="height: ${barHeight};"></div>
                 </div>
-            </div>
-            <div class="breakdown-progress-container">
-                <div class="breakdown-progress" style="width: ${pct}%;"></div>
-            </div>
-        `;
-        container.appendChild(item);
-    });
+                <span class="bar-label" title="${categoryLabel}">${categoryLabel}</span>
+            `;
+            container.appendChild(item);
+        });
+    } else {
+        // 기존 그리드 카드형 렌더링
+        container.className = 'category-breakdown-grid';
+        
+        sortedCats.forEach(catKey => {
+            const amt = catSums[catKey];
+            const pct = totalExpense > 0 ? Math.round((amt / totalExpense) * 100) : 0;
+            
+            const categoryConfig = appState.expenseCategories.find(c => c.value === catKey);
+            const categoryLabel = categoryConfig ? categoryConfig.label : catKey;
+            
+            const item = document.createElement('div');
+            item.className = 'breakdown-item';
+            item.innerHTML = `
+                <div class="breakdown-info">
+                    <span class="breakdown-label">${categoryLabel}</span>
+                    <div class="breakdown-value-wrapper">
+                        <span class="breakdown-amt">${formatCurrency(amt)}</span>
+                        <span class="breakdown-pct">(${pct}%)</span>
+                    </div>
+                </div>
+                <div class="breakdown-progress-container">
+                    <div class="breakdown-progress" style="width: ${pct}%;"></div>
+                </div>
+            `;
+            container.appendChild(item);
+        });
+    }
 }
 
 // 각 항목 DOM 구조 생성
@@ -954,6 +1008,24 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 카테고리 관리자 초기 로드
     renderCategoryManager();
+    
+    // 차트 뷰 모드 토글 이벤트 연결
+    const toggleGridBtn = document.getElementById('toggle-view-grid');
+    const toggleBarBtn = document.getElementById('toggle-view-bar');
+    
+    if (toggleGridBtn && toggleBarBtn) {
+        toggleGridBtn.addEventListener('click', () => {
+            appState.breakdownViewMode = 'grid';
+            localStorage.setItem('storebook_breakdown_view_mode', 'grid');
+            updateUI();
+        });
+        
+        toggleBarBtn.addEventListener('click', () => {
+            appState.breakdownViewMode = 'bar';
+            localStorage.setItem('storebook_breakdown_view_mode', 'bar');
+            updateUI();
+        });
+    }
     
     // 3. 최초 화면 렌더링
     updateUI();
