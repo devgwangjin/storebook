@@ -212,7 +212,9 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
       if (dbCats && dbCats.length > 0) {
         for (const c of dbCats) {
           const targetMap = c.type === 'income' ? incomeMap : expenseMap;
-          targetMap.set(c.value, { value: c.value, label: c.label });
+          if (!targetMap.has(c.value)) {
+            targetMap.set(c.value, { value: c.value, label: c.label || c.value });
+          }
         }
       }
 

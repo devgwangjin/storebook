@@ -20,6 +20,8 @@ import {
   deleteCategory,
   syncLocalStorageToSupabase,
   fixTransactionMonths,
+  DEFAULT_INCOME_CATEGORIES,
+  DEFAULT_EXPENSE_CATEGORIES,
 } from '@/lib/storebook-service';
 import { getPrevMonthString, getNextMonthString } from '@/lib/storebook-utils';
 
@@ -55,10 +57,11 @@ export default function StorebookPage() {
     setCarryOver(mData.carryOver);
     setTransactions(mData.transactions);
 
-    // Auto-extract any categories used in the loaded transactions!
+    // Auto-extract any categories used in the loaded transactions (always preserving default categories)!
     if (mData.transactions && mData.transactions.length > 0) {
       setIncomeCategories((prev) => {
         const map = new Map<string, CategoryItem>();
+        DEFAULT_INCOME_CATEGORIES.forEach((c) => map.set(c.value, c));
         prev.forEach((c) => map.set(c.value, c));
         mData.transactions
           .filter((t) => t.type === 'income' && Boolean(t.category))
@@ -70,6 +73,7 @@ export default function StorebookPage() {
 
       setExpenseCategories((prev) => {
         const map = new Map<string, CategoryItem>();
+        DEFAULT_EXPENSE_CATEGORIES.forEach((c) => map.set(c.value, c));
         prev.forEach((c) => map.set(c.value, c));
         mData.transactions
           .filter((t) => t.type === 'expense' && Boolean(t.category))
