@@ -255,7 +255,8 @@ export async function syncLocalStorageToSupabase(): Promise<number> {
       }
       if (mData.transactions && mData.transactions.length > 0) {
         for (const tx of mData.transactions) {
-          await addTransaction(ym, {
+          const targetYm = tx.date ? tx.date.substring(0, 7) : ym;
+          await addTransaction(targetYm, {
             type: tx.type,
             name: tx.name,
             amount: tx.amount,
@@ -271,6 +272,66 @@ export async function syncLocalStorageToSupabase(): Promise<number> {
     console.error('syncLocalStorageToSupabase error', e);
   }
   return count;
+}
+
+/**
+ * Fix any transactions whose date (e.g. 2026-08-13) does not match its year_month (e.g. 2026-07)
+ */
+export async function fixTransactionMonths(): Promise<void> {
+  try {
+    if (supabase) {
+      const { data: allTx, error } = await supabase.from('storebook_transactions').select('*');
+      if (!error && allTx) {
+        for (const row of allTx) {
+          if (row.date) {
+            const correctYm = String(row.date).substring(0, 7);
+            if (row.year_month !== correctYm) {
+              await supabase
+                .from('storebook_transactions')
+                .update({ year_month: correctYm })
+                .eq('id', row.id);
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('fixTransactionMonths failed', e);
+  }
+
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('storebook_data');
+      if (raw) {
+        const allData = JSON.parse(raw);
+        let modified = false;
+        for (const ym of Object.keys(allData)) {
+          const mData = allData[ym];
+          if (mData.transactions && mData.transactions.length > 0) {
+            const validTx: Transaction[] = [];
+            for (const tx of mData.transactions) {
+              const correctYm = tx.date ? tx.date.substring(0, 7) : ym;
+              if (correctYm !== ym) {
+                modified = true;
+                if (!allData[correctYm]) {
+                  allData[correctYm] = { carryOver: 0, transactions: [] };
+                }
+                allData[correctYm].transactions.unshift(tx);
+              } else {
+                validTx.push(tx);
+              }
+            }
+            allData[ym].transactions = validTx;
+          }
+        }
+        if (modified) {
+          localStorage.setItem('storebook_data', JSON.stringify(allData));
+        }
+      }
+    } catch (e) {
+      console.error('fixTransactionMonths LocalStorage error', e);
+    }
+  }
 }
 
 /**

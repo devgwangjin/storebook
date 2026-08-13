@@ -19,6 +19,7 @@ import {
   addCategory,
   deleteCategory,
   syncLocalStorageToSupabase,
+  fixTransactionMonths,
 } from '@/lib/storebook-service';
 import { getPrevMonthString, getNextMonthString } from '@/lib/storebook-utils';
 
@@ -39,6 +40,8 @@ export default function StorebookPage() {
 
   useEffect(() => {
     async function loadCats() {
+      // Fix any mismatched year_month in DB first
+      await fixTransactionMonths();
       const cats = await fetchCategories();
       setIncomeCategories(cats.income);
       setExpenseCategories(cats.expense);
@@ -74,8 +77,16 @@ export default function StorebookPage() {
     isRecurring: boolean;
     date: string;
   }) => {
-    const created = await addTransaction(yearMonth, txPayload);
-    setTransactions((prev) => [created, ...prev]);
+    // Dynamically derive the correct target YYYY-MM from the transaction date!
+    const targetYearMonth = txPayload.date.substring(0, 7); // e.g. "2026-08"
+    const created = await addTransaction(targetYearMonth, txPayload);
+
+    if (targetYearMonth === yearMonth) {
+      setTransactions((prev) => [created, ...prev]);
+    } else {
+      // Automatically switch view to the added transaction's month!
+      setYearMonth(targetYearMonth);
+    }
   };
 
   const handleDeleteTx = async (id: string) => {
@@ -103,6 +114,7 @@ export default function StorebookPage() {
 
   const handleSyncLocalData = async () => {
     await syncLocalStorageToSupabase();
+    await fixTransactionMonths();
     await loadData(yearMonth);
   };
 
