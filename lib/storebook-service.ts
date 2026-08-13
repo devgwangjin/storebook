@@ -172,7 +172,7 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
   const incomeMap = new Map<string, CategoryItem>();
   const expenseMap = new Map<string, CategoryItem>();
 
-  // 1. ALWAYS start with defaults
+  // 1. ALWAYS start with defaults as base
   DEFAULT_INCOME_CATEGORIES.forEach((c) => incomeMap.set(c.value, c));
   DEFAULT_EXPENSE_CATEGORIES.forEach((c) => expenseMap.set(c.value, c));
 
@@ -225,6 +225,7 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
       // Auto-discover from DB Transactions
       const { data: dbTxs } = await supabase.from('storebook_transactions').select('category, type');
       if (dbTxs && dbTxs.length > 0) {
+        const missingDbCategories: { type: TransactionType; value: string; label: string }[] = [];
         for (const tx of dbTxs) {
           if (tx.category) {
             const catType: TransactionType = tx.type === 'income' ? 'income' : 'expense';
@@ -232,29 +233,29 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
             if (!targetMap.has(tx.category)) {
               const newItem = { value: tx.category, label: tx.category };
               targetMap.set(tx.category, newItem);
-
-              try {
-                await supabase.from('storebook_categories').insert({
-                  type: catType,
-                  value: tx.category,
-                  label: tx.category
-                });
-              } catch (e) {}
+              missingDbCategories.push({ type: catType, value: tx.category, label: tx.category });
             }
+          }
+        }
+        // Batch insert missing categories to Supabase
+        if (missingDbCategories.length > 0) {
+          try {
+            await supabase.from('storebook_categories').insert(missingDbCategories);
+          } catch (e) {
+            console.warn('Batch insert missing categories failed', e);
           }
         }
       }
 
       // Ensure default categories exist in Supabase DB
-      for (const defInc of DEFAULT_INCOME_CATEGORIES) {
-        try {
-          await supabase.from('storebook_categories').upsert({ type: 'income', value: defInc.value, label: defInc.label });
-        } catch (e) {}
-      }
-      for (const defExp of DEFAULT_EXPENSE_CATEGORIES) {
-        try {
-          await supabase.from('storebook_categories').upsert({ type: 'expense', value: defExp.value, label: defExp.label });
-        } catch (e) {}
+      const defaultCategoriesToUpsert = [
+        ...DEFAULT_INCOME_CATEGORIES.map((c) => ({ type: 'income', value: c.value, label: c.label })),
+        ...DEFAULT_EXPENSE_CATEGORIES.map((c) => ({ type: 'expense', value: c.value, label: c.label })),
+      ];
+      try {
+        await supabase.from('storebook_categories').upsert(defaultCategoriesToUpsert);
+      } catch (e) {
+        console.warn('Upsert default categories failed', e);
       }
     }
   } catch (e) {

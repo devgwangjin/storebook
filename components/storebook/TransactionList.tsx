@@ -21,11 +21,13 @@ const panelStyle: React.CSSProperties = {
 export default function TransactionList({ transactions, onDeleteTransaction }: TransactionListProps) {
   const [filter, setFilter] = useState<'all' | 'income' | 'expense'>('all');
 
-  const filtered = transactions.filter((t) => {
-    if (filter === 'income') return t.type === 'income';
-    if (filter === 'expense') return t.type === 'expense';
-    return true;
-  });
+  const filtered = React.useMemo(() => {
+    return transactions.filter((t) => {
+      if (filter === 'income') return t.type === 'income';
+      if (filter === 'expense') return t.type === 'expense';
+      return true;
+    });
+  }, [transactions, filter]);
 
   const filterBtnStyle = (active: boolean, color?: string): React.CSSProperties => ({
     padding: '6px 14px',

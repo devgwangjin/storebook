@@ -162,13 +162,17 @@ export default function StorebookPage() {
     await loadData(yearMonth);
   };
 
-  const totalIncome = transactions
-    .filter((t) => t.type === 'income')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+  const totalIncome = React.useMemo(() => {
+    return transactions
+      .filter((t) => t.type === 'income')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+  }, [transactions]);
 
-  const totalExpense = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((acc, curr) => acc + curr.amount, 0);
+  const totalExpense = React.useMemo(() => {
+    return transactions
+      .filter((t) => t.type === 'expense')
+      .reduce((acc, curr) => acc + curr.amount, 0);
+  }, [transactions]);
 
   return (
     <div

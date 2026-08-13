@@ -33,8 +33,12 @@ export default function CategoryManager({
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newCatName.trim()) return;
     const val = newCatName.trim();
+    if (!val) return;
+    if (categories.some((c) => c.value === val || c.label === val)) {
+      alert('이미 존재하는 카테고리입니다.');
+      return;
+    }
     setIsAdding(true);
     await onAddCategory(activeTab, val, val);
     setIsAdding(false);

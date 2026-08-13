@@ -21,19 +21,21 @@ const panelStyle: React.CSSProperties = {
 export default function CategoryBreakdown({ transactions, totalExpense }: CategoryBreakdownProps) {
   const [viewMode, setViewMode] = useState<'grid' | 'bar'>('grid');
 
-  const expenses = transactions.filter((t) => t.type === 'expense');
-  const categoryTotals: Record<string, number> = {};
-  expenses.forEach((tx) => {
-    categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
-  });
+  const sortedCategories = React.useMemo(() => {
+    const expenses = transactions.filter((t) => t.type === 'expense');
+    const categoryTotals: Record<string, number> = {};
+    expenses.forEach((tx) => {
+      categoryTotals[tx.category] = (categoryTotals[tx.category] || 0) + tx.amount;
+    });
 
-  const sortedCategories = Object.entries(categoryTotals)
-    .map(([cat, amount]) => ({
-      category: cat,
-      amount,
-      percentage: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount);
+    return Object.entries(categoryTotals)
+      .map(([cat, amount]) => ({
+        category: cat,
+        amount,
+        percentage: totalExpense > 0 ? Math.round((amount / totalExpense) * 100) : 0,
+      }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [transactions, totalExpense]);
 
   const colors = ['#fb7185', '#f59e0b', '#06b6d4', '#a78bfa', '#34d399', '#f472b6', '#38bdf8'];
 
