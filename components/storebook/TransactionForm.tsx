@@ -223,7 +223,7 @@ export default function TransactionForm({
         </div>
 
         {/* Recurring Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', paddingTop: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
           <span style={{ fontSize: 'clamp(0.75rem, 0.8vw, 0.9rem)', fontWeight: 500, color: '#cbd5e1' }}>매월 반복 고정 항목</span>
           <button
             type="button"
