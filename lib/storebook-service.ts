@@ -212,6 +212,33 @@ export async function addCategory(type: TransactionType, value: string, label: s
 }
 
 /**
+ * Delete Category
+ */
+export async function deleteCategory(type: TransactionType, value: string): Promise<boolean> {
+  try {
+    if (supabase) {
+      const { error } = await supabase
+        .from('storebook_categories')
+        .delete()
+        .eq('type', type)
+        .eq('value', value);
+      if (!error) return true;
+    }
+  } catch (e) {
+    console.warn('Supabase deleteCategory failed', e);
+  }
+
+  const current = getLocalStorageCategories();
+  if (type === 'income') {
+    current.income = current.income.filter((c) => c.value !== value);
+  } else {
+    current.expense = current.expense.filter((c) => c.value !== value);
+  }
+  saveLocalStorageCategories(current);
+  return true;
+}
+
+/**
  * LocalStorage Helper Functions
  */
 function getLocalStorageMonthData(yearMonth: string): MonthData {

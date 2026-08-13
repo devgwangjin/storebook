@@ -7,6 +7,7 @@ interface CategoryManagerProps {
   incomeCategories: CategoryItem[];
   expenseCategories: CategoryItem[];
   onAddCategory: (type: TransactionType, value: string, label: string) => Promise<void>;
+  onDeleteCategory: (type: TransactionType, value: string) => Promise<void>;
 }
 
 const panelStyle: React.CSSProperties = {
@@ -22,6 +23,7 @@ export default function CategoryManager({
   incomeCategories,
   expenseCategories,
   onAddCategory,
+  onDeleteCategory,
 }: CategoryManagerProps) {
   const [activeTab, setActiveTab] = useState<TransactionType>('expense');
   const [newCatName, setNewCatName] = useState('');
@@ -37,6 +39,14 @@ export default function CategoryManager({
     await onAddCategory(activeTab, val, val);
     setIsAdding(false);
     setNewCatName('');
+  };
+
+  const handleDelete = async (val: string) => {
+    if (categories.length <= 1) {
+      alert('최소 1개 이상의 카테고리가 필요합니다.');
+      return;
+    }
+    await onDeleteCategory(activeTab, val);
   };
 
   const tabStyle = (active: boolean, color: string): React.CSSProperties => ({
@@ -76,19 +86,43 @@ export default function CategoryManager({
         </button>
       </div>
 
-      {/* Tags */}
+      {/* Category Tag List with Delete Button */}
       <div style={{
         display: 'flex', flexWrap: 'wrap', gap: '6px',
-        marginBottom: '16px', maxHeight: '120px', overflowY: 'auto', padding: '4px',
+        marginBottom: '16px', maxHeight: '140px', overflowY: 'auto', padding: '4px',
       }}>
         {categories.map((c) => (
           <span key={c.value} style={{
+            display: 'inline-flex', alignItems: 'center', gap: '6px',
             padding: '4px 10px', borderRadius: '8px',
             background: '#020617', border: '1px solid #1e293b',
             fontSize: 'clamp(0.7rem, 0.8vw, 0.85rem)',
             fontWeight: 500, color: '#cbd5e1',
           }}>
-            {c.label}
+            <span>{c.label}</span>
+            <button
+              type="button"
+              onClick={() => handleDelete(c.value)}
+              title={`${c.label} 카테고리 삭제`}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#64748b',
+                cursor: 'pointer',
+                fontSize: '0.75rem',
+                fontWeight: 700,
+                lineHeight: 1,
+                padding: '0 2px',
+                borderRadius: '4px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = '#fb7185')}
+              onMouseLeave={(e) => (e.currentTarget.style.color = '#64748b')}
+            >
+              ✕
+            </button>
           </span>
         ))}
       </div>

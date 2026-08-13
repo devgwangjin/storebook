@@ -17,6 +17,7 @@ import {
   deleteTransaction,
   fetchCategories,
   addCategory,
+  deleteCategory,
 } from '@/lib/storebook-service';
 import { getPrevMonthString, getNextMonthString } from '@/lib/storebook-utils';
 
@@ -83,6 +84,15 @@ export default function StorebookPage() {
     }
   };
 
+  const handleDeleteCat = async (type: TransactionType, value: string) => {
+    await deleteCategory(type, value);
+    if (type === 'income') {
+      setIncomeCategories((prev) => prev.filter((c) => c.value !== value));
+    } else {
+      setExpenseCategories((prev) => prev.filter((c) => c.value !== value));
+    }
+  };
+
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((acc, curr) => acc + curr.amount, 0);
@@ -139,7 +149,7 @@ export default function StorebookPage() {
 
             <BudgetProgressBar totalIncome={totalIncome} totalExpense={totalExpense} />
 
-            {/* Main 2-column layout: left = form, right = charts + list */}
+            {/* Main 2-column layout */}
             <div
               style={{
                 display: 'grid',
@@ -160,6 +170,7 @@ export default function StorebookPage() {
                   incomeCategories={incomeCategories}
                   expenseCategories={expenseCategories}
                   onAddCategory={handleAddCat}
+                  onDeleteCategory={handleDeleteCat}
                 />
               </div>
 
@@ -173,7 +184,6 @@ export default function StorebookPage() {
         )}
       </div>
 
-      {/* Responsive grid override for narrow screens + spin animation */}
       <style>{`
         @keyframes spin {
           to { transform: rotate(360deg); }
