@@ -1,10 +1,9 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 :root {
   --bg-main: #090d16;
-  --font-sans: 'Inter', -apple-system, sans-serif;
-  --font-display: 'Outfit', -apple-system, sans-serif;
+  --font-sans: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
 }
 
 * {
@@ -13,17 +12,24 @@
   padding: 0;
 }
 
-html, body {
+html {
+  /* Fluid base font: 14px at 1024px → 16px at 1920px → 18px at 2560px */
+  font-size: clamp(14px, 0.625rem + 0.417vw, 18px);
+}
+
+body {
   min-height: 100vh;
   background-color: var(--bg-main);
-  color: #f1f5f9;
+  color: #e2e8f0;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-display);
+  font-family: var(--font-sans);
+  font-weight: 700;
 }
 
 /* Custom Scrollbars */
@@ -43,4 +49,9 @@ h1, h2, h3, h4, h5, h6 {
 
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(100, 116, 139, 1);
+}
+
+/* Ensure select/input elements inherit font */
+input, select, textarea, button {
+  font-family: inherit;
 }

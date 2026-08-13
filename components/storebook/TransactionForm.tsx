@@ -17,6 +17,37 @@ interface TransactionFormProps {
   }) => Promise<void>;
 }
 
+const panelStyle: React.CSSProperties = {
+  width: '100%',
+  padding: 'clamp(16px, 1.5vw, 28px)',
+  borderRadius: '16px',
+  background: 'rgba(15, 23, 42, 0.6)',
+  border: '1px solid rgba(30, 41, 59, 0.8)',
+  backdropFilter: 'blur(12px)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  fontSize: 'clamp(0.7rem, 0.8vw, 0.85rem)',
+  fontWeight: 600,
+  color: '#94a3b8',
+  marginBottom: '6px',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: '#020617',
+  border: '1px solid #1e293b',
+  borderRadius: '12px',
+  padding: 'clamp(8px, 0.8vw, 12px) clamp(12px, 1vw, 16px)',
+  fontSize: 'clamp(0.8rem, 0.9vw, 0.95rem)',
+  color: '#e2e8f0',
+  fontWeight: 500,
+  outline: 'none',
+  fontFamily: 'inherit',
+};
+
 export default function TransactionForm({
   incomeCategories,
   expenseCategories,
@@ -31,98 +62,83 @@ export default function TransactionForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const categories = type === 'expense' ? expenseCategories : incomeCategories;
-
-  // Amount parsing
   const numericAmount = parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0;
   const koreanAmountText = numericAmount > 0 ? numberToKorean(numericAmount) : '영 원';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || numericAmount <= 0) return;
-
     const selectedCategory = category || (categories[0]?.value || '기타');
-
     setIsSubmitting(true);
-    await onAddTransaction({
-      type,
-      name: name.trim(),
-      amount: numericAmount,
-      category: selectedCategory,
-      isRecurring,
-      date,
-    });
+    await onAddTransaction({ type, name: name.trim(), amount: numericAmount, category: selectedCategory, isRecurring, date });
     setIsSubmitting(false);
-
-    // Reset fields
     setName('');
     setAmountStr('');
     setIsRecurring(false);
   };
 
+  const tabStyle = (active: boolean, color: string): React.CSSProperties => ({
+    flex: 1,
+    padding: 'clamp(8px, 0.7vw, 12px)',
+    borderRadius: '10px',
+    fontSize: 'clamp(0.8rem, 0.85vw, 0.95rem)',
+    fontWeight: 700,
+    border: active ? `1px solid ${color}33` : '1px solid transparent',
+    background: active ? `${color}1a` : 'transparent',
+    color: active ? color : '#94a3b8',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
+  });
+
   return (
-    <div className="w-full p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-xl">
-      {/* Tab Selector */}
-      <div className="flex bg-slate-950 p-1.5 rounded-xl mb-6 border border-slate-800/80">
+    <div style={panelStyle}>
+      {/* Tabs */}
+      <div style={{
+        display: 'flex',
+        background: '#020617',
+        padding: '6px',
+        borderRadius: '12px',
+        marginBottom: 'clamp(16px, 1.2vw, 24px)',
+        border: '1px solid rgba(30, 41, 59, 0.8)',
+      }}>
         <button
           type="button"
-          onClick={() => {
-            setType('expense');
-            setCategory(expenseCategories[0]?.value || '');
-          }}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            type === 'expense'
-              ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
+          onClick={() => { setType('expense'); setCategory(expenseCategories[0]?.value || ''); }}
+          style={tabStyle(type === 'expense', '#fb7185')}
         >
           지출 추가 💸
         </button>
         <button
           type="button"
-          onClick={() => {
-            setType('income');
-            setCategory(incomeCategories[0]?.value || '');
-          }}
-          className={`flex-1 py-2.5 rounded-lg text-sm font-bold transition-all ${
-            type === 'income'
-              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
+          onClick={() => { setType('income'); setCategory(incomeCategories[0]?.value || ''); }}
+          style={tabStyle(type === 'income', '#34d399')}
         >
           수입 추가 💰
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        {/* Date */}
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 1vw, 16px)' }}>
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">날짜</label>
-          <input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            required
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-medium"
-          />
+          <label style={labelStyle}>날짜</label>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
         </div>
 
-        {/* Name */}
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">항목 이름</label>
+          <label style={labelStyle}>항목 이름</label>
           <input
             type="text"
             placeholder={type === 'expense' ? '예: 식비, 월세, 쇼핑' : '예: 월급, 보너스'}
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-medium"
+            style={inputStyle}
           />
         </div>
 
-        {/* Amount */}
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">금액 (원)</label>
-          <div className="relative">
+          <label style={labelStyle}>금액 (원)</label>
+          <div style={{ position: 'relative' }}>
             <input
               type="text"
               placeholder="0"
@@ -132,58 +148,77 @@ export default function TransactionForm({
                 setAmountStr(val ? parseInt(val, 10).toLocaleString() : '');
               }}
               required
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-100 font-bold focus:outline-none focus:border-cyan-500 pr-10"
+              style={{ ...inputStyle, fontWeight: 700, paddingRight: '40px' }}
             />
-            <span className="absolute right-4 top-3 text-sm font-bold text-slate-500">원</span>
+            <span style={{
+              position: 'absolute', right: '16px', top: '50%', transform: 'translateY(-50%)',
+              fontSize: 'clamp(0.8rem, 0.9vw, 0.95rem)', fontWeight: 700, color: '#475569',
+            }}>원</span>
           </div>
-          <div className="mt-1.5 text-xs text-cyan-400 font-semibold">{koreanAmountText}</div>
+          <div style={{ marginTop: '6px', fontSize: 'clamp(0.7rem, 0.75vw, 0.85rem)', color: '#22d3ee', fontWeight: 600 }}>
+            {koreanAmountText}
+          </div>
         </div>
 
-        {/* Category */}
         <div>
-          <label className="block text-xs font-semibold text-slate-400 mb-1.5">카테고리</label>
+          <label style={labelStyle}>카테고리</label>
           <select
             value={category || (categories[0]?.value || '')}
             onChange={(e) => setCategory(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-cyan-500 font-medium cursor-pointer"
+            style={{ ...inputStyle, cursor: 'pointer' }}
           >
             {categories.map((c) => (
-              <option key={c.value} value={c.value}>
-                {c.label}
-              </option>
+              <option key={c.value} value={c.value}>{c.label}</option>
             ))}
           </select>
         </div>
 
         {/* Recurring Toggle */}
-        <div className="flex items-center justify-between pt-2">
-          <span className="text-xs font-medium text-slate-300">매월 반복 고정 항목</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
+          <span style={{ fontSize: 'clamp(0.75rem, 0.8vw, 0.9rem)', fontWeight: 500, color: '#cbd5e1' }}>매월 반복 고정 항목</span>
           <button
             type="button"
             onClick={() => setIsRecurring(!isRecurring)}
-            className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
-              isRecurring ? 'bg-cyan-500' : 'bg-slate-800'
-            }`}
+            style={{
+              width: '44px', height: '24px', borderRadius: '9999px',
+              background: isRecurring ? '#06b6d4' : '#1e293b',
+              border: 'none', cursor: 'pointer', position: 'relative',
+              transition: 'background 0.2s', padding: '2px',
+            }}
           >
-            <div
-              className={`w-5 h-5 rounded-full bg-white transition-transform ${
-                isRecurring ? 'translate-x-6' : 'translate-x-0'
-              }`}
-            />
+            <div style={{
+              width: '20px', height: '20px', borderRadius: '50%', background: '#fff',
+              transition: 'transform 0.2s',
+              transform: isRecurring ? 'translateX(20px)' : 'translateX(0)',
+            }} />
           </button>
         </div>
 
-        {/* Submit Button */}
+        {/* Submit */}
         <button
           type="submit"
           disabled={isSubmitting}
-          className={`w-full py-3.5 rounded-xl text-sm font-bold text-white shadow-lg transition-all flex items-center justify-center gap-2 mt-4 ${
-            type === 'expense'
-              ? 'bg-gradient-to-r from-rose-600 to-red-500 hover:from-rose-500 hover:to-red-400 shadow-rose-600/20'
-              : 'bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 shadow-emerald-600/20'
-          }`}
+          style={{
+            width: '100%',
+            padding: 'clamp(10px, 1vw, 14px)',
+            borderRadius: '12px',
+            fontSize: 'clamp(0.85rem, 0.9vw, 1rem)',
+            fontWeight: 700,
+            color: '#fff',
+            border: 'none',
+            cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+            marginTop: '8px',
+            background: type === 'expense'
+              ? 'linear-gradient(90deg, #e11d48, #ef4444)'
+              : 'linear-gradient(90deg, #059669, #14b8a6)',
+            boxShadow: type === 'expense'
+              ? '0 4px 16px rgba(225, 29, 72, 0.25)'
+              : '0 4px 16px rgba(5, 150, 105, 0.25)',
+            fontFamily: 'inherit',
+          }}
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
           </svg>
           <span>{type === 'expense' ? '지출 추가하기' : '수입 추가하기'}</span>

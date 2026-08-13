@@ -28,7 +28,6 @@ export default function StorebookPage() {
   const [expenseCategories, setExpenseCategories] = useState<CategoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load Categories on mount
   useEffect(() => {
     async function loadCats() {
       const cats = await fetchCategories();
@@ -38,7 +37,6 @@ export default function StorebookPage() {
     loadCats();
   }, []);
 
-  // Load Month Data when yearMonth changes
   const loadData = useCallback(async (ym: string) => {
     setIsLoading(true);
     const mData = await fetchMonthData(ym);
@@ -51,17 +49,14 @@ export default function StorebookPage() {
     loadData(yearMonth);
   }, [yearMonth, loadData]);
 
-  // Month handlers
   const handlePrevMonth = () => setYearMonth(getPrevMonthString(yearMonth));
   const handleNextMonth = () => setYearMonth(getNextMonthString(yearMonth));
 
-  // Carry-over handler
   const handleUpdateCarryOver = async (newAmount: number) => {
     setCarryOver(newAmount);
     await saveCarryOverBalance(yearMonth, newAmount);
   };
 
-  // Add Transaction handler
   const handleAddTx = async (txPayload: {
     type: TransactionType;
     name: string;
@@ -74,13 +69,11 @@ export default function StorebookPage() {
     setTransactions((prev) => [created, ...prev]);
   };
 
-  // Delete Transaction handler
   const handleDeleteTx = async (id: string) => {
     await deleteTransaction(yearMonth, id);
     setTransactions((prev) => prev.filter((t) => t.id !== id));
   };
 
-  // Add Category handler
   const handleAddCat = async (type: TransactionType, value: string, label: string) => {
     const created = await addCategory(type, value, label);
     if (type === 'income') {
@@ -90,7 +83,6 @@ export default function StorebookPage() {
     }
   };
 
-  // Aggregates
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((acc, curr) => acc + curr.amount, 0);
@@ -100,9 +92,25 @@ export default function StorebookPage() {
     .reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
-    <div className="min-h-screen w-full bg-[#090d16] text-slate-100 font-sans p-4 sm:p-6 lg:p-8 selection:bg-cyan-500 selection:text-white">
-      <div className="w-full max-w-[1920px] mx-auto space-y-6">
-        {/* Header */}
+    <div
+      style={{
+        minHeight: '100vh',
+        width: '100%',
+        backgroundColor: '#090d16',
+        color: '#e2e8f0',
+        padding: 'clamp(16px, 2vw, 40px)',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '1600px',
+          margin: '0 auto',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'clamp(16px, 1.5vw, 28px)',
+        }}
+      >
         <Header
           yearMonth={yearMonth}
           onPrevMonth={handlePrevMonth}
@@ -110,13 +118,18 @@ export default function StorebookPage() {
         />
 
         {isLoading ? (
-          <div className="py-20 flex flex-col items-center justify-center gap-3 text-slate-500">
-            <div className="w-8 h-8 border-4 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
-            <span className="text-xs font-semibold">데이터를 불러오는 중입니다...</span>
+          <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#64748b' }}>
+            <div style={{
+              width: '32px', height: '32px',
+              border: '4px solid rgba(6, 182, 212, 0.3)',
+              borderTopColor: '#06b6d4',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite',
+            }} />
+            <span style={{ fontSize: '0.875rem', fontWeight: 600 }}>데이터를 불러오는 중입니다...</span>
           </div>
         ) : (
           <>
-            {/* Summary Cards */}
             <SummaryGrid
               carryOver={carryOver}
               totalIncome={totalIncome}
@@ -124,19 +137,25 @@ export default function StorebookPage() {
               onUpdateCarryOver={handleUpdateCarryOver}
             />
 
-            {/* Budget Progress Bar */}
             <BudgetProgressBar totalIncome={totalIncome} totalExpense={totalExpense} />
 
-            {/* Main Layout Grid - Balanced 4:8 ratio for Ultrawide & Desktop */}
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
-              {/* Left Column (Entry Form & Category Management) */}
-              <div className="xl:col-span-4 space-y-6 w-full">
+            {/* Main 2-column layout: left = form, right = charts + list */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(320px, 1fr) minmax(0, 2fr)',
+                gap: 'clamp(16px, 1.5vw, 28px)',
+                width: '100%',
+              }}
+              className="storebook-main-grid"
+            >
+              {/* Left Column */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 1.5vw, 28px)' }}>
                 <TransactionForm
                   incomeCategories={incomeCategories}
                   expenseCategories={expenseCategories}
                   onAddTransaction={handleAddTx}
                 />
-
                 <CategoryManager
                   incomeCategories={incomeCategories}
                   expenseCategories={expenseCategories}
@@ -144,16 +163,27 @@ export default function StorebookPage() {
                 />
               </div>
 
-              {/* Right Column (Category Breakdown Charts & Transaction Lists) */}
-              <div className="xl:col-span-8 space-y-6 w-full">
+              {/* Right Column */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 1.5vw, 28px)', minWidth: 0 }}>
                 <CategoryBreakdown transactions={transactions} totalExpense={totalExpense} />
-
                 <TransactionList transactions={transactions} onDeleteTransaction={handleDeleteTx} />
               </div>
             </div>
           </>
         )}
       </div>
+
+      {/* Responsive grid override for narrow screens + spin animation */}
+      <style>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @media (max-width: 900px) {
+          .storebook-main-grid {
+            grid-template-columns: 1fr !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }

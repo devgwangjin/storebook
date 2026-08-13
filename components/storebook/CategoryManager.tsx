@@ -9,6 +9,15 @@ interface CategoryManagerProps {
   onAddCategory: (type: TransactionType, value: string, label: string) => Promise<void>;
 }
 
+const panelStyle: React.CSSProperties = {
+  padding: 'clamp(16px, 1.5vw, 28px)',
+  borderRadius: '16px',
+  background: 'rgba(15, 23, 42, 0.6)',
+  border: '1px solid rgba(30, 41, 59, 0.8)',
+  backdropFilter: 'blur(12px)',
+  boxShadow: '0 4px 24px rgba(0,0,0,0.2)',
+};
+
 export default function CategoryManager({
   incomeCategories,
   expenseCategories,
@@ -23,7 +32,6 @@ export default function CategoryManager({
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCatName.trim()) return;
-
     const val = newCatName.trim();
     setIsAdding(true);
     await onAddCategory(activeTab, val, val);
@@ -31,57 +39,96 @@ export default function CategoryManager({
     setNewCatName('');
   };
 
+  const tabStyle = (active: boolean, color: string): React.CSSProperties => ({
+    flex: 1,
+    padding: '6px',
+    borderRadius: '8px',
+    fontSize: 'clamp(0.7rem, 0.8vw, 0.85rem)',
+    fontWeight: 700,
+    background: active ? '#1e293b' : 'transparent',
+    color: active ? color : '#475569',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
+  });
+
   return (
-    <div className="p-6 rounded-2xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-md shadow-xl">
-      <div className="flex items-center gap-2 mb-4">
-        <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div style={panelStyle}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+        <svg style={{ width: '20px', height: '20px', color: '#22d3ee' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h10M7 12h10m-8 5h8" />
         </svg>
-        <h2 className="text-sm font-bold text-slate-200">카테고리 관리</h2>
+        <h2 style={{ fontSize: 'clamp(0.85rem, 0.95vw, 1.05rem)', fontWeight: 700, color: '#e2e8f0' }}>카테고리 관리</h2>
       </div>
 
-      <div className="flex bg-slate-950 p-1 rounded-xl mb-4 border border-slate-800/80">
-        <button
-          onClick={() => setActiveTab('expense')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'expense' ? 'bg-slate-800 text-rose-400' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
+      {/* Tabs */}
+      <div style={{
+        display: 'flex', background: '#020617', padding: '4px',
+        borderRadius: '12px', marginBottom: '16px',
+        border: '1px solid rgba(30, 41, 59, 0.8)',
+      }}>
+        <button onClick={() => setActiveTab('expense')} style={tabStyle(activeTab === 'expense', '#fb7185')}>
           지출 카테고리
         </button>
-        <button
-          onClick={() => setActiveTab('income')}
-          className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all ${
-            activeTab === 'income' ? 'bg-slate-800 text-emerald-400' : 'text-slate-500 hover:text-slate-300'
-          }`}
-        >
+        <button onClick={() => setActiveTab('income')} style={tabStyle(activeTab === 'income', '#34d399')}>
           수입 카테고리
         </button>
       </div>
 
-      <div className="flex flex-wrap gap-1.5 mb-4 max-h-32 overflow-y-auto p-1">
+      {/* Tags */}
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', gap: '6px',
+        marginBottom: '16px', maxHeight: '120px', overflowY: 'auto', padding: '4px',
+      }}>
         {categories.map((c) => (
-          <span
-            key={c.value}
-            className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 text-xs font-medium text-slate-300"
-          >
+          <span key={c.value} style={{
+            padding: '4px 10px', borderRadius: '8px',
+            background: '#020617', border: '1px solid #1e293b',
+            fontSize: 'clamp(0.7rem, 0.8vw, 0.85rem)',
+            fontWeight: 500, color: '#cbd5e1',
+          }}>
             {c.label}
           </span>
         ))}
       </div>
 
-      <form onSubmit={handleAdd} className="flex gap-2">
+      {/* Add form */}
+      <form onSubmit={handleAdd} style={{ display: 'flex', gap: '8px' }}>
         <input
           type="text"
           placeholder="새 카테고리 (예: 도서 📚)"
           value={newCatName}
           onChange={(e) => setNewCatName(e.target.value)}
-          className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500 font-medium"
+          style={{
+            flex: 1,
+            background: '#020617',
+            border: '1px solid #1e293b',
+            borderRadius: '12px',
+            padding: '8px 12px',
+            fontSize: 'clamp(0.7rem, 0.8vw, 0.85rem)',
+            color: '#e2e8f0',
+            fontWeight: 500,
+            outline: 'none',
+            fontFamily: 'inherit',
+          }}
         />
         <button
           type="submit"
           disabled={isAdding}
-          className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold transition-colors shrink-0 shadow-lg shadow-cyan-600/20"
+          style={{
+            padding: '8px 14px',
+            borderRadius: '12px',
+            background: '#0891b2',
+            color: '#fff',
+            fontSize: 'clamp(0.7rem, 0.8vw, 0.85rem)',
+            fontWeight: 700,
+            border: 'none',
+            cursor: 'pointer',
+            flexShrink: 0,
+            boxShadow: '0 4px 12px rgba(8, 145, 178, 0.25)',
+            fontFamily: 'inherit',
+          }}
         >
           추가
         </button>

@@ -3,7 +3,7 @@
 import React from 'react';
 
 interface HeaderProps {
-  yearMonth: string; // e.g. "2026-07"
+  yearMonth: string;
   onPrevMonth: () => void;
   onNextMonth: () => void;
 }
@@ -12,40 +12,78 @@ export default function Header({ yearMonth, onPrevMonth, onNextMonth }: HeaderPr
   const [year, month] = yearMonth.split('-').map(Number);
 
   return (
-    <header className="flex flex-col sm:flex-row items-center justify-between gap-4 pb-6 border-b border-slate-800">
-      <div className="flex items-center gap-3">
-        <div className="p-2.5 rounded-xl bg-gradient-to-tr from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 text-cyan-400 shadow-lg shadow-cyan-500/10">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <header style={{
+      display: 'flex',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: '16px',
+      paddingBottom: '20px',
+      borderBottom: '1px solid rgba(30, 41, 59, 0.8)',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{
+          padding: '10px',
+          borderRadius: '12px',
+          background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15), rgba(37, 99, 235, 0.15))',
+          border: '1px solid rgba(6, 182, 212, 0.3)',
+          color: '#22d3ee',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <svg style={{ width: '24px', height: '24px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
           </svg>
         </div>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+          <h1 style={{ fontSize: 'clamp(1.25rem, 1.5vw, 1.75rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#f1f5f9' }}>
             storebook
           </h1>
-          <p className="text-xs text-slate-400 font-medium">스마트 클라우드 가계부</p>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>스마트 클라우드 가계부</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3 bg-slate-900/80 border border-slate-800/80 rounded-2xl px-4 py-2 shadow-inner">
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        background: 'rgba(15, 23, 42, 0.8)',
+        border: '1px solid rgba(30, 41, 59, 0.8)',
+        borderRadius: '16px',
+        padding: '6px 16px',
+      }}>
         <button
           onClick={onPrevMonth}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          style={{
+            padding: '6px', borderRadius: '8px', background: 'transparent',
+            border: 'none', color: '#94a3b8', cursor: 'pointer',
+            display: 'flex', alignItems: 'center',
+          }}
           aria-label="이전 달"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
           </svg>
         </button>
-        <span className="text-base font-bold text-slate-200 min-w-[110px] text-center tracking-wide">
+        <span style={{
+          fontSize: 'clamp(0.9rem, 1vw, 1.125rem)',
+          fontWeight: 700,
+          color: '#e2e8f0',
+          minWidth: '120px',
+          textAlign: 'center',
+          letterSpacing: '0.02em',
+        }}>
           {year}년 {String(month).padStart(2, '0')}월
         </span>
         <button
           onClick={onNextMonth}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          style={{
+            padding: '6px', borderRadius: '8px', background: 'transparent',
+            border: 'none', color: '#94a3b8', cursor: 'pointer',
+            display: 'flex', alignItems: 'center',
+          }}
           aria-label="다음 달"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
           </svg>
         </button>
