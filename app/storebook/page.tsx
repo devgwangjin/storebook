@@ -22,8 +22,15 @@ import {
 } from '@/lib/storebook-service';
 import { getPrevMonthString, getNextMonthString } from '@/lib/storebook-utils';
 
+const getCurrentYearMonth = () => {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
 export default function StorebookPage() {
-  const [yearMonth, setYearMonth] = useState('2026-07');
+  const [yearMonth, setYearMonth] = useState(getCurrentYearMonth);
   const [carryOver, setCarryOver] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [incomeCategories, setIncomeCategories] = useState<CategoryItem[]>([]);
