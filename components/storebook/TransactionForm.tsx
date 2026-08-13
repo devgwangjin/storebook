@@ -65,6 +65,17 @@ export default function TransactionForm({
   const numericAmount = parseInt(amountStr.replace(/[^0-9]/g, ''), 10) || 0;
   const koreanAmountText = numericAmount > 0 ? numberToKorean(numericAmount) : '영 원';
 
+  // Helper date generators for quick buttons
+  const getDateStr = (offsetDays: number) => {
+    const d = new Date();
+    d.setDate(d.getDate() - offsetDays);
+    return d.toISOString().split('T')[0];
+  };
+
+  const todayStr = getDateStr(0);
+  const yesterdayStr = getDateStr(1);
+  const twoDaysAgoStr = getDateStr(2);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || numericAmount <= 0) return;
@@ -86,6 +97,20 @@ export default function TransactionForm({
     border: active ? `1px solid ${color}33` : '1px solid transparent',
     background: active ? `${color}1a` : 'transparent',
     color: active ? color : '#94a3b8',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    fontFamily: 'inherit',
+  });
+
+  const quickDateBtnStyle = (isSelected: boolean): React.CSSProperties => ({
+    flex: 1,
+    padding: '6px 10px',
+    borderRadius: '8px',
+    fontSize: 'clamp(0.7rem, 0.75vw, 0.8rem)',
+    fontWeight: 600,
+    background: isSelected ? 'rgba(6, 182, 212, 0.2)' : '#020617',
+    border: isSelected ? '1px solid rgba(6, 182, 212, 0.5)' : '1px solid #1e293b',
+    color: isSelected ? '#22d3ee' : '#94a3b8',
     cursor: 'pointer',
     transition: 'all 0.2s',
     fontFamily: 'inherit',
@@ -119,8 +144,32 @@ export default function TransactionForm({
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 1vw, 16px)' }}>
+        {/* Date Selector with Quick Action Buttons */}
         <div>
           <label style={labelStyle}>날짜</label>
+          <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setDate(todayStr)}
+              style={quickDateBtnStyle(date === todayStr)}
+            >
+              오늘 ⚡
+            </button>
+            <button
+              type="button"
+              onClick={() => setDate(yesterdayStr)}
+              style={quickDateBtnStyle(date === yesterdayStr)}
+            >
+              어제
+            </button>
+            <button
+              type="button"
+              onClick={() => setDate(twoDaysAgoStr)}
+              style={quickDateBtnStyle(date === twoDaysAgoStr)}
+            >
+              그저께
+            </button>
+          </div>
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
         </div>
 
@@ -174,7 +223,7 @@ export default function TransactionForm({
         </div>
 
         {/* Recurring Toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingTop: '4px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyBetween: 'space-between', paddingTop: '4px' }}>
           <span style={{ fontSize: 'clamp(0.75rem, 0.8vw, 0.9rem)', fontWeight: 500, color: '#cbd5e1' }}>매월 반복 고정 항목</span>
           <button
             type="button"
