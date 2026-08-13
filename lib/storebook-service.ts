@@ -166,20 +166,75 @@ export async function deleteTransaction(yearMonth: string, id: string): Promise<
 }
 
 /**
- * Fetch Categories
+ * Fetch Categories (Combines defaults, LocalStorage, DB categories, and categories auto-discovered from transaction history)
  */
 export async function fetchCategories(): Promise<{ income: CategoryItem[]; expense: CategoryItem[] }> {
+  const incomeMap = new Map<string, CategoryItem>();
+  const expenseMap = new Map<string, CategoryItem>();
+
+  // 1. Start with defaults
+  DEFAULT_INCOME_CATEGORIES.forEach((c) => incomeMap.set(c.value, c));
+  DEFAULT_EXPENSE_CATEGORIES.forEach((c) => expenseMap.set(c.value, c));
+
+  // 2. Load from LocalStorage categories
+  const localCats = getLocalStorageCategories();
+  localCats.income.forEach((c) => incomeMap.set(c.value, c));
+  localCats.expense.forEach((c) => expenseMap.set(c.value, c));
+
+  // 3. Auto-discover from LocalStorage transaction history
+  if (typeof window !== 'undefined') {
+    try {
+      const raw = localStorage.getItem('storebook_data');
+      if (raw) {
+        const allData = JSON.parse(raw);
+        for (const ym of Object.keys(allData)) {
+          const txs = allData[ym]?.transactions || [];
+          for (const tx of txs) {
+            if (tx.category) {
+              const targetMap = tx.type === 'income' ? incomeMap : expenseMap;
+              if (!targetMap.has(tx.category)) {
+                targetMap.set(tx.category, { value: tx.category, label: tx.category });
+              }
+            }
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading LocalStorage transactions for categories', e);
+    }
+  }
+
+  // 4. Load from Supabase DB categories & transactions
   try {
     if (supabase) {
-      const { data, error } = await supabase.from('storebook_categories').select('*');
-      if (!error && data && data.length > 0) {
-        const income = data.filter((c: any) => c.type === 'income').map((c: any) => ({ value: c.value, label: c.label }));
-        const expense = data.filter((c: any) => c.type === 'expense').map((c: any) => ({ value: c.value, label: c.label }));
-        if (income.length > 0 || expense.length > 0) {
-          return {
-            income: income.length > 0 ? income : DEFAULT_INCOME_CATEGORIES,
-            expense: expense.length > 0 ? expense : DEFAULT_EXPENSE_CATEGORIES
-          };
+      // DB Categories
+      const { data: dbCats } = await supabase.from('storebook_categories').select('*');
+      if (dbCats && dbCats.length > 0) {
+        for (const c of dbCats) {
+          const targetMap = c.type === 'income' ? incomeMap : expenseMap;
+          targetMap.set(c.value, { value: c.value, label: c.label });
+        }
+      }
+
+      // Auto-discover from DB Transactions
+      const { data: dbTxs } = await supabase.from('storebook_transactions').select('category, type');
+      if (dbTxs && dbTxs.length > 0) {
+        for (const tx of dbTxs) {
+          if (tx.category) {
+            const catType: TransactionType = tx.type === 'income' ? 'income' : 'expense';
+            const targetMap = catType === 'income' ? incomeMap : expenseMap;
+            if (!targetMap.has(tx.category)) {
+              const newItem = { value: tx.category, label: tx.category };
+              targetMap.set(tx.category, newItem);
+
+              // Save newly discovered category to Supabase storebook_categories
+              await supabase.from('storebook_categories').insert({
+                type: catType,
+                value: tx.category,
+                label: tx.category
+              }).catch(() => {});
+            }
+          }
         }
       }
     }
@@ -187,7 +242,13 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
     console.warn('Supabase fetchCategories failed', e);
   }
 
-  return getLocalStorageCategories();
+  const income = Array.from(incomeMap.values());
+  const expense = Array.from(expenseMap.values());
+
+  // Persist merged category lists back to LocalStorage
+  saveLocalStorageCategories({ income, expense });
+
+  return { income, expense };
 }
 
 /**
@@ -245,6 +306,16 @@ export async function syncLocalStorageToSupabase(): Promise<number> {
   if (!supabase) return 0;
   let count = 0;
   try {
+    // 1. Sync Categories from LocalStorage
+    const localCats = getLocalStorageCategories();
+    for (const inc of localCats.income) {
+      await supabase.from('storebook_categories').upsert({ type: 'income', value: inc.value, label: inc.label }).catch(() => {});
+    }
+    for (const exp of localCats.expense) {
+      await supabase.from('storebook_categories').upsert({ type: 'expense', value: exp.value, label: exp.label }).catch(() => {});
+    }
+
+    // 2. Sync Transactions
     const raw = localStorage.getItem('storebook_data');
     if (!raw) return 0;
     const allData = JSON.parse(raw);

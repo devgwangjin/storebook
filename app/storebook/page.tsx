@@ -54,6 +54,32 @@ export default function StorebookPage() {
     const mData = await fetchMonthData(ym);
     setCarryOver(mData.carryOver);
     setTransactions(mData.transactions);
+
+    // Auto-extract any categories used in the loaded transactions!
+    if (mData.transactions && mData.transactions.length > 0) {
+      setIncomeCategories((prev) => {
+        const map = new Map<string, CategoryItem>();
+        prev.forEach((c) => map.set(c.value, c));
+        mData.transactions
+          .filter((t) => t.type === 'income' && Boolean(t.category))
+          .forEach((t) => {
+            if (!map.has(t.category)) map.set(t.category, { value: t.category, label: t.category });
+          });
+        return Array.from(map.values());
+      });
+
+      setExpenseCategories((prev) => {
+        const map = new Map<string, CategoryItem>();
+        prev.forEach((c) => map.set(c.value, c));
+        mData.transactions
+          .filter((t) => t.type === 'expense' && Boolean(t.category))
+          .forEach((t) => {
+            if (!map.has(t.category)) map.set(t.category, { value: t.category, label: t.category });
+          });
+        return Array.from(map.values());
+      });
+    }
+
     setIsLoading(false);
   }, []);
 
@@ -80,6 +106,17 @@ export default function StorebookPage() {
     // Dynamically derive the correct target YYYY-MM from the transaction date!
     const targetYearMonth = txPayload.date.substring(0, 7); // e.g. "2026-08"
     const created = await addTransaction(targetYearMonth, txPayload);
+
+    // Merge newly used category into state
+    if (txPayload.category) {
+      const setCats = txPayload.type === 'income' ? setIncomeCategories : setExpenseCategories;
+      setCats((prev) => {
+        if (!prev.some((c) => c.value === txPayload.category)) {
+          return [...prev, { value: txPayload.category, label: txPayload.category }];
+        }
+        return prev;
+      });
+    }
 
     if (targetYearMonth === yearMonth) {
       setTransactions((prev) => [created, ...prev]);
@@ -115,6 +152,9 @@ export default function StorebookPage() {
   const handleSyncLocalData = async () => {
     await syncLocalStorageToSupabase();
     await fixTransactionMonths();
+    const cats = await fetchCategories();
+    setIncomeCategories(cats.income);
+    setExpenseCategories(cats.expense);
     await loadData(yearMonth);
   };
 
