@@ -1,15 +1,27 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 
 interface HeaderProps {
   yearMonth: string;
   onPrevMonth: () => void;
   onNextMonth: () => void;
+  onSyncLocalData?: () => Promise<void>;
 }
 
-export default function Header({ yearMonth, onPrevMonth, onNextMonth }: HeaderProps) {
+export default function Header({ yearMonth, onPrevMonth, onNextMonth, onSyncLocalData }: HeaderProps) {
   const [year, month] = yearMonth.split('-').map(Number);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncDoneMsg, setSyncDoneMsg] = useState('');
+
+  const handleSync = async () => {
+    if (!onSyncLocalData) return;
+    setIsSyncing(true);
+    await onSyncLocalData();
+    setIsSyncing(false);
+    setSyncDoneMsg('동기화 완료!');
+    setTimeout(() => setSyncDoneMsg(''), 3000);
+  };
 
   return (
     <header style={{
@@ -42,51 +54,78 @@ export default function Header({ yearMonth, onPrevMonth, onNextMonth }: HeaderPr
         </div>
       </div>
 
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        background: 'rgba(15, 23, 42, 0.8)',
-        border: '1px solid rgba(30, 41, 59, 0.8)',
-        borderRadius: '16px',
-        padding: '6px 16px',
-      }}>
-        <button
-          onClick={onPrevMonth}
-          style={{
-            padding: '6px', borderRadius: '8px', background: 'transparent',
-            border: 'none', color: '#94a3b8', cursor: 'pointer',
-            display: 'flex', alignItems: 'center',
-          }}
-          aria-label="이전 달"
-        >
-          <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <span style={{
-          fontSize: 'clamp(0.9rem, 1vw, 1.125rem)',
-          fontWeight: 700,
-          color: '#e2e8f0',
-          minWidth: '120px',
-          textAlign: 'center',
-          letterSpacing: '0.02em',
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        {onSyncLocalData && (
+          <button
+            onClick={handleSync}
+            disabled={isSyncing}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '8px 14px',
+              borderRadius: '12px',
+              background: 'rgba(6, 182, 212, 0.15)',
+              border: '1px solid rgba(6, 182, 212, 0.3)',
+              color: '#22d3ee',
+              fontSize: 'clamp(0.75rem, 0.8vw, 0.85rem)',
+              fontWeight: 700,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontFamily: 'inherit',
+            }}
+            title="윈도우 PC에 저장된 내역을 클라우드 DB로 동기화"
+          >
+            <span>{isSyncing ? '동기화 중...' : syncDoneMsg || '☁️ 이전 작성 내역 클라우드 동기화'}</span>
+          </button>
+        )}
+
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'rgba(15, 23, 42, 0.8)',
+          border: '1px solid rgba(30, 41, 59, 0.8)',
+          borderRadius: '16px',
+          padding: '6px 16px',
         }}>
-          {year}년 {String(month).padStart(2, '0')}월
-        </span>
-        <button
-          onClick={onNextMonth}
-          style={{
-            padding: '6px', borderRadius: '8px', background: 'transparent',
-            border: 'none', color: '#94a3b8', cursor: 'pointer',
-            display: 'flex', alignItems: 'center',
-          }}
-          aria-label="다음 달"
-        >
-          <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-          </svg>
-        </button>
+          <button
+            onClick={onPrevMonth}
+            style={{
+              padding: '6px', borderRadius: '8px', background: 'transparent',
+              border: 'none', color: '#94a3b8', cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+            }}
+            aria-label="이전 달"
+          >
+            <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span style={{
+            fontSize: 'clamp(0.9rem, 1vw, 1.125rem)',
+            fontWeight: 700,
+            color: '#e2e8f0',
+            minWidth: '120px',
+            textAlign: 'center',
+            letterSpacing: '0.02em',
+          }}>
+            {year}년 {String(month).padStart(2, '0')}월
+          </span>
+          <button
+            onClick={onNextMonth}
+            style={{
+              padding: '6px', borderRadius: '8px', background: 'transparent',
+              border: 'none', color: '#94a3b8', cursor: 'pointer',
+              display: 'flex', alignItems: 'center',
+            }}
+            aria-label="다음 달"
+          >
+            <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
       </div>
     </header>
   );

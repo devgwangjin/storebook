@@ -18,6 +18,7 @@ import {
   fetchCategories,
   addCategory,
   deleteCategory,
+  syncLocalStorageToSupabase,
 } from '@/lib/storebook-service';
 import { getPrevMonthString, getNextMonthString } from '@/lib/storebook-utils';
 
@@ -93,6 +94,11 @@ export default function StorebookPage() {
     }
   };
 
+  const handleSyncLocalData = async () => {
+    await syncLocalStorageToSupabase();
+    await loadData(yearMonth);
+  };
+
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
     .reduce((acc, curr) => acc + curr.amount, 0);
@@ -125,6 +131,7 @@ export default function StorebookPage() {
           yearMonth={yearMonth}
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}
+          onSyncLocalData={handleSyncLocalData}
         />
 
         {isLoading ? (

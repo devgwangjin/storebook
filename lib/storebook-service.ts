@@ -239,6 +239,41 @@ export async function deleteCategory(type: TransactionType, value: string): Prom
 }
 
 /**
+ * Sync LocalStorage data to Supabase DB
+ */
+export async function syncLocalStorageToSupabase(): Promise<number> {
+  if (!supabase) return 0;
+  let count = 0;
+  try {
+    const raw = localStorage.getItem('storebook_data');
+    if (!raw) return 0;
+    const allData = JSON.parse(raw);
+    for (const ym of Object.keys(allData)) {
+      const mData = allData[ym];
+      if (mData.carryOver) {
+        await saveCarryOverBalance(ym, mData.carryOver);
+      }
+      if (mData.transactions && mData.transactions.length > 0) {
+        for (const tx of mData.transactions) {
+          await addTransaction(ym, {
+            type: tx.type,
+            name: tx.name,
+            amount: tx.amount,
+            category: tx.category,
+            isRecurring: tx.isRecurring,
+            date: tx.date,
+          });
+          count++;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('syncLocalStorageToSupabase error', e);
+  }
+  return count;
+}
+
+/**
  * LocalStorage Helper Functions
  */
 function getLocalStorageMonthData(yearMonth: string): MonthData {
