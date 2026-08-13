@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: '재고관리 시스템',
-  description: '자재 및 품목 재고 통합 관리 시스템',
+  title: 'storebook - 프리미엄 가계부',
+  description: '나만의 데이터를 안전하게 보관하는 프리미엄 다크 테마 로컬 & 클라우드 가계부',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
