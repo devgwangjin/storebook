@@ -172,14 +172,18 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
   const incomeMap = new Map<string, CategoryItem>();
   const expenseMap = new Map<string, CategoryItem>();
 
-  // 1. Start with defaults
+  // 1. ALWAYS start with defaults
   DEFAULT_INCOME_CATEGORIES.forEach((c) => incomeMap.set(c.value, c));
   DEFAULT_EXPENSE_CATEGORIES.forEach((c) => expenseMap.set(c.value, c));
 
   // 2. Load from LocalStorage categories
   const localCats = getLocalStorageCategories();
-  localCats.income.forEach((c) => incomeMap.set(c.value, c));
-  localCats.expense.forEach((c) => expenseMap.set(c.value, c));
+  localCats.income.forEach((c) => {
+    if (!incomeMap.has(c.value)) incomeMap.set(c.value, c);
+  });
+  localCats.expense.forEach((c) => {
+    if (!expenseMap.has(c.value)) expenseMap.set(c.value, c);
+  });
 
   // 3. Auto-discover from LocalStorage transaction history
   if (typeof window !== 'undefined') {
@@ -229,7 +233,6 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
               const newItem = { value: tx.category, label: tx.category };
               targetMap.set(tx.category, newItem);
 
-              // Save newly discovered category to Supabase storebook_categories
               try {
                 await supabase.from('storebook_categories').insert({
                   type: catType,
@@ -240,6 +243,18 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
             }
           }
         }
+      }
+
+      // Ensure default categories exist in Supabase DB
+      for (const defInc of DEFAULT_INCOME_CATEGORIES) {
+        try {
+          await supabase.from('storebook_categories').upsert({ type: 'income', value: defInc.value, label: defInc.label });
+        } catch (e) {}
+      }
+      for (const defExp of DEFAULT_EXPENSE_CATEGORIES) {
+        try {
+          await supabase.from('storebook_categories').upsert({ type: 'expense', value: defExp.value, label: defExp.label });
+        } catch (e) {}
       }
     }
   } catch (e) {
@@ -445,11 +460,38 @@ function saveLocalStorageMonthData(yearMonth: string, data: MonthData) {
 function getLocalStorageCategories(): { income: CategoryItem[]; expense: CategoryItem[] } {
   if (typeof window === 'undefined') return { income: DEFAULT_INCOME_CATEGORIES, expense: DEFAULT_EXPENSE_CATEGORIES };
   try {
-    const inc = localStorage.getItem('storebook_income_categories');
-    const exp = localStorage.getItem('storebook_expense_categories');
+    const incRaw = localStorage.getItem('storebook_income_categories');
+    const expRaw = localStorage.getItem('storebook_expense_categories');
+
+    const incMap = new Map<string, CategoryItem>();
+    DEFAULT_INCOME_CATEGORIES.forEach((c) => incMap.set(c.value, c));
+    if (incRaw) {
+      try {
+        const parsed = JSON.parse(incRaw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((c: CategoryItem) => {
+            if (c && c.value && !incMap.has(c.value)) incMap.set(c.value, c);
+          });
+        }
+      } catch (e) {}
+    }
+
+    const expMap = new Map<string, CategoryItem>();
+    DEFAULT_EXPENSE_CATEGORIES.forEach((c) => expMap.set(c.value, c));
+    if (expRaw) {
+      try {
+        const parsed = JSON.parse(expRaw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((c: CategoryItem) => {
+            if (c && c.value && !expMap.has(c.value)) expMap.set(c.value, c);
+          });
+        }
+      } catch (e) {}
+    }
+
     return {
-      income: inc ? JSON.parse(inc) : DEFAULT_INCOME_CATEGORIES,
-      expense: exp ? JSON.parse(exp) : DEFAULT_EXPENSE_CATEGORIES
+      income: Array.from(incMap.values()),
+      expense: Array.from(expMap.values()),
     };
   } catch (e) {
     return { income: DEFAULT_INCOME_CATEGORIES, expense: DEFAULT_EXPENSE_CATEGORIES };
