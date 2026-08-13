@@ -144,7 +144,7 @@ export default function TransactionForm({
       </div>
 
       <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(12px, 1vw, 16px)' }}>
-        {/* Date Selector with Quick Action Buttons */}
+        {/* Date Selector with Calendar Icon, Click Trigger & Hover Glow Effect */}
         <div>
           <label style={labelStyle}>날짜</label>
           <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
@@ -170,7 +170,54 @@ export default function TransactionForm({
               그저께
             </button>
           </div>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} required style={inputStyle} />
+
+          <div style={{ position: 'relative', width: '100%' }}>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              onClick={(e) => {
+                try {
+                  if ('showPicker' in e.currentTarget) {
+                    (e.currentTarget as any).showPicker();
+                  }
+                } catch (err) {}
+              }}
+              required
+              style={{
+                ...inputStyle,
+                colorScheme: 'dark',
+                cursor: 'pointer',
+                paddingRight: '44px',
+                transition: 'border-color 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#06b6d4';
+                e.currentTarget.style.boxShadow = '0 0 12px rgba(6, 182, 212, 0.25)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = '#1e293b';
+                e.currentTarget.style.boxShadow = 'none';
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                right: '14px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+                color: '#22d3ee',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+            </div>
+          </div>
         </div>
 
         <div>
