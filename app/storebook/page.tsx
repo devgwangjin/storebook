@@ -100,8 +100,8 @@ export default function StorebookPage() {
     .reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans p-4 sm:p-6 lg:p-8 selection:bg-cyan-500 selection:text-white">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen w-full bg-[#090d16] text-slate-100 font-sans p-4 sm:p-6 lg:p-8 selection:bg-cyan-500 selection:text-white">
+      <div className="w-full max-w-[1920px] mx-auto space-y-6">
         {/* Header */}
         <Header
           yearMonth={yearMonth}
@@ -127,10 +127,10 @@ export default function StorebookPage() {
             {/* Budget Progress Bar */}
             <BudgetProgressBar totalIncome={totalIncome} totalExpense={totalExpense} />
 
-            {/* Main Layout Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              {/* Left Column (Forms & Settings) */}
-              <div className="lg:col-span-5 space-y-6">
+            {/* Main Layout Grid - Balanced 4:8 ratio for Ultrawide & Desktop */}
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 w-full">
+              {/* Left Column (Entry Form & Category Management) */}
+              <div className="xl:col-span-4 space-y-6 w-full">
                 <TransactionForm
                   incomeCategories={incomeCategories}
                   expenseCategories={expenseCategories}
@@ -144,8 +144,8 @@ export default function StorebookPage() {
                 />
               </div>
 
-              {/* Right Column (Visual Breakdown & Lists) */}
-              <div className="lg:col-span-7 space-y-6">
+              {/* Right Column (Category Breakdown Charts & Transaction Lists) */}
+              <div className="xl:col-span-8 space-y-6 w-full">
                 <CategoryBreakdown transactions={transactions} totalExpense={totalExpense} />
 
                 <TransactionList transactions={transactions} onDeleteTransaction={handleDeleteTx} />
