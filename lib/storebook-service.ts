@@ -228,11 +228,13 @@ export async function fetchCategories(): Promise<{ income: CategoryItem[]; expen
               targetMap.set(tx.category, newItem);
 
               // Save newly discovered category to Supabase storebook_categories
-              await supabase.from('storebook_categories').insert({
-                type: catType,
-                value: tx.category,
-                label: tx.category
-              }).catch(() => {});
+              try {
+                await supabase.from('storebook_categories').insert({
+                  type: catType,
+                  value: tx.category,
+                  label: tx.category
+                });
+              } catch (e) {}
             }
           }
         }
@@ -309,10 +311,14 @@ export async function syncLocalStorageToSupabase(): Promise<number> {
     // 1. Sync Categories from LocalStorage
     const localCats = getLocalStorageCategories();
     for (const inc of localCats.income) {
-      await supabase.from('storebook_categories').upsert({ type: 'income', value: inc.value, label: inc.label }).catch(() => {});
+      try {
+        await supabase.from('storebook_categories').upsert({ type: 'income', value: inc.value, label: inc.label });
+      } catch (e) {}
     }
     for (const exp of localCats.expense) {
-      await supabase.from('storebook_categories').upsert({ type: 'expense', value: exp.value, label: exp.label }).catch(() => {});
+      try {
+        await supabase.from('storebook_categories').upsert({ type: 'expense', value: exp.value, label: exp.label });
+      } catch (e) {}
     }
 
     // 2. Sync Transactions
