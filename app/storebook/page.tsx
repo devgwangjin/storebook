@@ -15,14 +15,13 @@ import {
   fetchMonthData,
   saveCarryOverBalance,
   addTransaction,
+  updateTransaction,
   deleteTransaction,
   fetchCategories,
   addCategory,
   deleteCategory,
   syncLocalStorageToSupabase,
   fixTransactionMonths,
-  DEFAULT_INCOME_CATEGORIES,
-  DEFAULT_EXPENSE_CATEGORIES,
 } from '@/lib/storebook-service';
 import { getPrevMonthString, getNextMonthString } from '@/lib/storebook-utils';
 
@@ -57,34 +56,6 @@ export default function StorebookPage() {
     const mData = await fetchMonthData(ym);
     setCarryOver(mData.carryOver);
     setTransactions(mData.transactions);
-
-    // Auto-extract any categories used in the loaded transactions (always preserving default categories)!
-    if (mData.transactions && mData.transactions.length > 0) {
-      setIncomeCategories((prev) => {
-        const map = new Map<string, CategoryItem>();
-        DEFAULT_INCOME_CATEGORIES.forEach((c) => map.set(c.value, c));
-        prev.forEach((c) => map.set(c.value, c));
-        mData.transactions
-          .filter((t) => t.type === 'income' && Boolean(t.category))
-          .forEach((t) => {
-            if (!map.has(t.category)) map.set(t.category, { value: t.category, label: t.category });
-          });
-        return Array.from(map.values());
-      });
-
-      setExpenseCategories((prev) => {
-        const map = new Map<string, CategoryItem>();
-        DEFAULT_EXPENSE_CATEGORIES.forEach((c) => map.set(c.value, c));
-        prev.forEach((c) => map.set(c.value, c));
-        mData.transactions
-          .filter((t) => t.type === 'expense' && Boolean(t.category))
-          .forEach((t) => {
-            if (!map.has(t.category)) map.set(t.category, { value: t.category, label: t.category });
-          });
-        return Array.from(map.values());
-      });
-    }
-
     setIsLoading(false);
   }, []);
 
@@ -111,22 +82,17 @@ export default function StorebookPage() {
     const targetYearMonth = txPayload.date.substring(0, 7);
     const created = await addTransaction(targetYearMonth, txPayload);
 
-    // Merge newly used category into state
-    if (txPayload.category) {
-      const setCats = txPayload.type === 'income' ? setIncomeCategories : setExpenseCategories;
-      setCats((prev) => {
-        if (!prev.some((c) => c.value === txPayload.category)) {
-          return [...prev, { value: txPayload.category, label: txPayload.category }];
-        }
-        return prev;
-      });
-    }
-
     if (targetYearMonth === yearMonth) {
       setTransactions((prev) => [created, ...prev]);
     } else {
       setYearMonth(targetYearMonth);
     }
+  };
+
+  const handleUpdateTx = async (id: string, updatedFields: Partial<Omit<Transaction, 'id'>>) => {
+    await updateTransaction(yearMonth, id, updatedFields);
+    await fixTransactionMonths();
+    await loadData(yearMonth);
   };
 
   const handleDeleteTx = async (id: string) => {
@@ -155,23 +121,16 @@ export default function StorebookPage() {
   const handleSyncLocalData = async () => {
     await syncLocalStorageToSupabase();
     await fixTransactionMonths();
-    const cats = await fetchCategories();
-    setIncomeCategories(cats.income);
-    setExpenseCategories(cats.expense);
     await loadData(yearMonth);
   };
 
-  const totalIncome = React.useMemo(() => {
-    return transactions
-      .filter((t) => t.type === 'income')
-      .reduce((acc, curr) => acc + curr.amount, 0);
-  }, [transactions]);
+  const totalIncome = transactions
+    .filter((t) => t.type === 'income')
+    .reduce((acc, curr) => acc + curr.amount, 0);
 
-  const totalExpense = React.useMemo(() => {
-    return transactions
-      .filter((t) => t.type === 'expense')
-      .reduce((acc, curr) => acc + curr.amount, 0);
-  }, [transactions]);
+  const totalExpense = transactions
+    .filter((t) => t.type === 'expense')
+    .reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
     <div
@@ -254,7 +213,13 @@ export default function StorebookPage() {
               {/* Right Column */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 1.5vw, 28px)', minWidth: 0 }}>
                 <CategoryBreakdown transactions={transactions} totalExpense={totalExpense} />
-                <TransactionList transactions={transactions} onDeleteTransaction={handleDeleteTx} />
+                <TransactionList
+                  transactions={transactions}
+                  onDeleteTransaction={handleDeleteTx}
+                  onUpdateTransaction={handleUpdateTx}
+                  incomeCategories={incomeCategories}
+                  expenseCategories={expenseCategories}
+                />
               </div>
             </div>
           </>

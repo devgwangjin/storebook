@@ -70,7 +70,6 @@ export async function fetchMonthData(yearMonth: string): Promise<MonthData> {
     console.warn('Supabase fetch failed, falling back to LocalStorage/Demo data', err);
   }
 
-  // Fallback to LocalStorage / Demo Data
   return getLocalStorageMonthData(yearMonth);
 }
 
@@ -89,7 +88,6 @@ export async function saveCarryOverBalance(yearMonth: string, amount: number): P
     console.warn('Supabase saveCarryOver failed', e);
   }
 
-  // Fallback
   const current = getLocalStorageMonthData(yearMonth);
   current.carryOver = amount;
   saveLocalStorageMonthData(yearMonth, current);
@@ -134,12 +132,53 @@ export async function addTransaction(yearMonth: string, tx: Omit<Transaction, 'i
     console.warn('Supabase addTransaction failed', e);
   }
 
-  // LocalStorage Fallback
   const fullTx: Transaction = { id: newId, ...tx };
   const current = getLocalStorageMonthData(yearMonth);
   current.transactions.unshift(fullTx);
   saveLocalStorageMonthData(yearMonth, current);
   return fullTx;
+}
+
+/**
+ * Update Transaction
+ */
+export async function updateTransaction(
+  yearMonth: string,
+  id: string,
+  updatedFields: Partial<Omit<Transaction, 'id'>>
+): Promise<boolean> {
+  try {
+    if (supabase) {
+      const updateData: any = {};
+      if (updatedFields.type !== undefined) updateData.type = updatedFields.type;
+      if (updatedFields.name !== undefined) updateData.name = updatedFields.name;
+      if (updatedFields.amount !== undefined) updateData.amount = updatedFields.amount;
+      if (updatedFields.category !== undefined) updateData.category = updatedFields.category;
+      if (updatedFields.isRecurring !== undefined) updateData.is_recurring = updatedFields.isRecurring;
+      if (updatedFields.date !== undefined) {
+        updateData.date = updatedFields.date;
+        updateData.year_month = updatedFields.date.substring(0, 7);
+      }
+
+      const { error } = await supabase
+        .from('storebook_transactions')
+        .update(updateData)
+        .eq('id', id);
+
+      if (!error) return true;
+    }
+  } catch (e) {
+    console.warn('Supabase updateTransaction failed', e);
+  }
+
+  // LocalStorage Fallback
+  const current = getLocalStorageMonthData(yearMonth);
+  const index = current.transactions.findIndex((t) => t.id === id);
+  if (index !== -1) {
+    current.transactions[index] = { ...current.transactions[index], ...updatedFields };
+    saveLocalStorageMonthData(yearMonth, current);
+  }
+  return true;
 }
 
 /**
@@ -158,117 +197,35 @@ export async function deleteTransaction(yearMonth: string, id: string): Promise<
     console.warn('Supabase deleteTransaction failed', e);
   }
 
-  // LocalStorage Fallback
   const current = getLocalStorageMonthData(yearMonth);
-  current.transactions = current.transactions.filter(t => t.id !== id);
+  current.transactions = current.transactions.filter((t) => t.id !== id);
   saveLocalStorageMonthData(yearMonth, current);
   return true;
 }
 
 /**
- * Fetch Categories (Combines defaults, LocalStorage, DB categories, and categories auto-discovered from transaction history)
+ * Fetch Categories
  */
 export async function fetchCategories(): Promise<{ income: CategoryItem[]; expense: CategoryItem[] }> {
-  const incomeMap = new Map<string, CategoryItem>();
-  const expenseMap = new Map<string, CategoryItem>();
-
-  // 1. ALWAYS start with defaults as base
-  DEFAULT_INCOME_CATEGORIES.forEach((c) => incomeMap.set(c.value, c));
-  DEFAULT_EXPENSE_CATEGORIES.forEach((c) => expenseMap.set(c.value, c));
-
-  // 2. Load from LocalStorage categories
-  const localCats = getLocalStorageCategories();
-  localCats.income.forEach((c) => {
-    if (!incomeMap.has(c.value)) incomeMap.set(c.value, c);
-  });
-  localCats.expense.forEach((c) => {
-    if (!expenseMap.has(c.value)) expenseMap.set(c.value, c);
-  });
-
-  // 3. Auto-discover from LocalStorage transaction history
-  if (typeof window !== 'undefined') {
-    try {
-      const raw = localStorage.getItem('storebook_data');
-      if (raw) {
-        const allData = JSON.parse(raw);
-        for (const ym of Object.keys(allData)) {
-          const txs = allData[ym]?.transactions || [];
-          for (const tx of txs) {
-            if (tx.category) {
-              const targetMap = tx.type === 'income' ? incomeMap : expenseMap;
-              if (!targetMap.has(tx.category)) {
-                targetMap.set(tx.category, { value: tx.category, label: tx.category });
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('Error reading LocalStorage transactions for categories', e);
-    }
-  }
-
-  // 4. Load from Supabase DB categories & transactions
   try {
     if (supabase) {
-      // DB Categories
-      const { data: dbCats } = await supabase.from('storebook_categories').select('*');
-      if (dbCats && dbCats.length > 0) {
-        for (const c of dbCats) {
-          const targetMap = c.type === 'income' ? incomeMap : expenseMap;
-          if (!targetMap.has(c.value)) {
-            targetMap.set(c.value, { value: c.value, label: c.label || c.value });
-          }
+      const { data, error } = await supabase.from('storebook_categories').select('*');
+      if (!error && data && data.length > 0) {
+        const income = data.filter((c: any) => c.type === 'income').map((c: any) => ({ value: c.value, label: c.label }));
+        const expense = data.filter((c: any) => c.type === 'expense').map((c: any) => ({ value: c.value, label: c.label }));
+        if (income.length > 0 || expense.length > 0) {
+          return {
+            income: income.length > 0 ? income : DEFAULT_INCOME_CATEGORIES,
+            expense: expense.length > 0 ? expense : DEFAULT_EXPENSE_CATEGORIES
+          };
         }
-      }
-
-      // Auto-discover from DB Transactions
-      const { data: dbTxs } = await supabase.from('storebook_transactions').select('category, type');
-      if (dbTxs && dbTxs.length > 0) {
-        const missingDbCategories: { type: TransactionType; value: string; label: string }[] = [];
-        for (const tx of dbTxs) {
-          if (tx.category) {
-            const catType: TransactionType = tx.type === 'income' ? 'income' : 'expense';
-            const targetMap = catType === 'income' ? incomeMap : expenseMap;
-            if (!targetMap.has(tx.category)) {
-              const newItem = { value: tx.category, label: tx.category };
-              targetMap.set(tx.category, newItem);
-              missingDbCategories.push({ type: catType, value: tx.category, label: tx.category });
-            }
-          }
-        }
-        // Batch insert missing categories to Supabase
-        if (missingDbCategories.length > 0) {
-          try {
-            await supabase.from('storebook_categories').insert(missingDbCategories);
-          } catch (e) {
-            console.warn('Batch insert missing categories failed', e);
-          }
-        }
-      }
-
-      // Ensure default categories exist in Supabase DB
-      const defaultCategoriesToUpsert = [
-        ...DEFAULT_INCOME_CATEGORIES.map((c) => ({ type: 'income', value: c.value, label: c.label })),
-        ...DEFAULT_EXPENSE_CATEGORIES.map((c) => ({ type: 'expense', value: c.value, label: c.label })),
-      ];
-      try {
-        await supabase.from('storebook_categories').upsert(defaultCategoriesToUpsert);
-      } catch (e) {
-        console.warn('Upsert default categories failed', e);
       }
     }
   } catch (e) {
     console.warn('Supabase fetchCategories failed', e);
   }
 
-  const income = Array.from(incomeMap.values());
-  const expense = Array.from(expenseMap.values());
-
-  // Persist merged category lists back to LocalStorage
-  saveLocalStorageCategories({ income, expense });
-
-  return { income, expense };
+  return getLocalStorageCategories();
 }
 
 /**
@@ -326,20 +283,6 @@ export async function syncLocalStorageToSupabase(): Promise<number> {
   if (!supabase) return 0;
   let count = 0;
   try {
-    // 1. Sync Categories from LocalStorage
-    const localCats = getLocalStorageCategories();
-    for (const inc of localCats.income) {
-      try {
-        await supabase.from('storebook_categories').upsert({ type: 'income', value: inc.value, label: inc.label });
-      } catch (e) {}
-    }
-    for (const exp of localCats.expense) {
-      try {
-        await supabase.from('storebook_categories').upsert({ type: 'expense', value: exp.value, label: exp.label });
-      } catch (e) {}
-    }
-
-    // 2. Sync Transactions
     const raw = localStorage.getItem('storebook_data');
     if (!raw) return 0;
     const allData = JSON.parse(raw);
@@ -461,38 +404,11 @@ function saveLocalStorageMonthData(yearMonth: string, data: MonthData) {
 function getLocalStorageCategories(): { income: CategoryItem[]; expense: CategoryItem[] } {
   if (typeof window === 'undefined') return { income: DEFAULT_INCOME_CATEGORIES, expense: DEFAULT_EXPENSE_CATEGORIES };
   try {
-    const incRaw = localStorage.getItem('storebook_income_categories');
-    const expRaw = localStorage.getItem('storebook_expense_categories');
-
-    const incMap = new Map<string, CategoryItem>();
-    DEFAULT_INCOME_CATEGORIES.forEach((c) => incMap.set(c.value, c));
-    if (incRaw) {
-      try {
-        const parsed = JSON.parse(incRaw);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((c: CategoryItem) => {
-            if (c && c.value && !incMap.has(c.value)) incMap.set(c.value, c);
-          });
-        }
-      } catch (e) {}
-    }
-
-    const expMap = new Map<string, CategoryItem>();
-    DEFAULT_EXPENSE_CATEGORIES.forEach((c) => expMap.set(c.value, c));
-    if (expRaw) {
-      try {
-        const parsed = JSON.parse(expRaw);
-        if (Array.isArray(parsed)) {
-          parsed.forEach((c: CategoryItem) => {
-            if (c && c.value && !expMap.has(c.value)) expMap.set(c.value, c);
-          });
-        }
-      } catch (e) {}
-    }
-
+    const inc = localStorage.getItem('storebook_income_categories');
+    const exp = localStorage.getItem('storebook_expense_categories');
     return {
-      income: Array.from(incMap.values()),
-      expense: Array.from(expMap.values()),
+      income: inc ? JSON.parse(inc) : DEFAULT_INCOME_CATEGORIES,
+      expense: exp ? JSON.parse(exp) : DEFAULT_EXPENSE_CATEGORIES
     };
   } catch (e) {
     return { income: DEFAULT_INCOME_CATEGORIES, expense: DEFAULT_EXPENSE_CATEGORIES };
