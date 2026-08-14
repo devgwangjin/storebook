@@ -164,7 +164,7 @@ export default function StockTracker() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 1.5vw, 24px)', width: '100%' }}>
       {/* Top Controls & Refresh */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyBetween: 'space-between', gap: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h2 style={{ fontSize: 'clamp(1.1rem, 1.3vw, 1.5rem)', fontWeight: 800, color: '#f1f5f9' }}>
             📈 주식 투자 실시간 수익률 트래커
