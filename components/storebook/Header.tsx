@@ -3,13 +3,22 @@
 import React, { useState } from 'react';
 
 interface HeaderProps {
+  activeTab: 'ledger' | 'stock';
+  onSelectTab: (tab: 'ledger' | 'stock') => void;
   yearMonth: string;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onSyncLocalData?: () => Promise<void>;
 }
 
-export default function Header({ yearMonth, onPrevMonth, onNextMonth, onSyncLocalData }: HeaderProps) {
+export default function Header({
+  activeTab,
+  onSelectTab,
+  yearMonth,
+  onPrevMonth,
+  onNextMonth,
+  onSyncLocalData,
+}: HeaderProps) {
   const [year, month] = yearMonth.split('-').map(Number);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncDoneMsg, setSyncDoneMsg] = useState('');
@@ -23,6 +32,20 @@ export default function Header({ yearMonth, onPrevMonth, onNextMonth, onSyncLoca
     setTimeout(() => setSyncDoneMsg(''), 3000);
   };
 
+  const navTabStyle = (isSelected: boolean): React.CSSProperties => ({
+    padding: '8px 16px',
+    borderRadius: '12px',
+    fontSize: 'clamp(0.8rem, 0.85vw, 0.95rem)',
+    fontWeight: 700,
+    background: isSelected ? 'linear-gradient(90deg, #06b6d4, #3b82f6)' : 'transparent',
+    color: isSelected ? '#ffffff' : '#94a3b8',
+    border: 'none',
+    cursor: 'pointer',
+    transition: 'all 0.2s',
+    boxShadow: isSelected ? '0 4px 14px rgba(6, 182, 212, 0.3)' : 'none',
+    fontFamily: 'inherit',
+  });
+
   return (
     <header style={{
       display: 'flex',
@@ -33,6 +56,7 @@ export default function Header({ yearMonth, onPrevMonth, onNextMonth, onSyncLoca
       paddingBottom: '20px',
       borderBottom: '1px solid rgba(30, 41, 59, 0.8)',
     }}>
+      {/* Brand & Subtitle */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
         <div style={{
           padding: '10px',
@@ -50,12 +74,30 @@ export default function Header({ yearMonth, onPrevMonth, onNextMonth, onSyncLoca
           <h1 style={{ fontSize: 'clamp(1.25rem, 1.5vw, 1.75rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#f1f5f9' }}>
             storebook
           </h1>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>스마트 클라우드 가계부</p>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>스마트 가계부 & 자산 트래커</p>
         </div>
       </div>
 
+      {/* Center Nav Tabs: Ledger vs Stock Portfolio */}
+      <div style={{
+        display: 'flex',
+        background: '#020617',
+        padding: '4px',
+        borderRadius: '16px',
+        border: '1px solid rgba(30, 41, 59, 0.8)',
+        gap: '4px',
+      }}>
+        <button onClick={() => onSelectTab('ledger')} style={navTabStyle(activeTab === 'ledger')}>
+          📊 가계부
+        </button>
+        <button onClick={() => onSelectTab('stock')} style={navTabStyle(activeTab === 'stock')}>
+          📈 주식 수익률
+        </button>
+      </div>
+
+      {/* Month Navigator & Sync Button (Visible in Ledger Mode) */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-        {onSyncLocalData && (
+        {activeTab === 'ledger' && onSyncLocalData && (
           <button
             onClick={handleSync}
             disabled={isSyncing}
@@ -80,52 +122,54 @@ export default function Header({ yearMonth, onPrevMonth, onNextMonth, onSyncLoca
           </button>
         )}
 
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          background: 'rgba(15, 23, 42, 0.8)',
-          border: '1px solid rgba(30, 41, 59, 0.8)',
-          borderRadius: '16px',
-          padding: '6px 16px',
-        }}>
-          <button
-            onClick={onPrevMonth}
-            style={{
-              padding: '6px', borderRadius: '8px', background: 'transparent',
-              border: 'none', color: '#94a3b8', cursor: 'pointer',
-              display: 'flex', alignItems: 'center',
-            }}
-            aria-label="이전 달"
-          >
-            <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <span style={{
-            fontSize: 'clamp(0.9rem, 1vw, 1.125rem)',
-            fontWeight: 700,
-            color: '#e2e8f0',
-            minWidth: '120px',
-            textAlign: 'center',
-            letterSpacing: '0.02em',
+        {activeTab === 'ledger' && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            background: 'rgba(15, 23, 42, 0.8)',
+            border: '1px solid rgba(30, 41, 59, 0.8)',
+            borderRadius: '16px',
+            padding: '6px 16px',
           }}>
-            {year}년 {String(month).padStart(2, '0')}월
-          </span>
-          <button
-            onClick={onNextMonth}
-            style={{
-              padding: '6px', borderRadius: '8px', background: 'transparent',
-              border: 'none', color: '#94a3b8', cursor: 'pointer',
-              display: 'flex', alignItems: 'center',
-            }}
-            aria-label="다음 달"
-          >
-            <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        </div>
+            <button
+              onClick={onPrevMonth}
+              style={{
+                padding: '6px', borderRadius: '8px', background: 'transparent',
+                border: 'none', color: '#94a3b8', cursor: 'pointer',
+                display: 'flex', alignItems: 'center',
+              }}
+              aria-label="이전 달"
+            >
+              <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+            <span style={{
+              fontSize: 'clamp(0.9rem, 1vw, 1.125rem)',
+              fontWeight: 700,
+              color: '#e2e8f0',
+              minWidth: '120px',
+              textAlign: 'center',
+              letterSpacing: '0.02em',
+            }}>
+              {year}년 {String(month).padStart(2, '0')}월
+            </span>
+            <button
+              onClick={onNextMonth}
+              style={{
+                padding: '6px', borderRadius: '8px', background: 'transparent',
+                border: 'none', color: '#94a3b8', cursor: 'pointer',
+                display: 'flex', alignItems: 'center',
+              }}
+              aria-label="다음 달"
+            >
+              <svg style={{ width: '20px', height: '20px' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

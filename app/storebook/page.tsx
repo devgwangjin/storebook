@@ -8,6 +8,7 @@ import TransactionForm from '@/components/storebook/TransactionForm';
 import CategoryBreakdown from '@/components/storebook/CategoryBreakdown';
 import TransactionList from '@/components/storebook/TransactionList';
 import CategoryManager from '@/components/storebook/CategoryManager';
+import StockTracker from '@/components/storebook/StockTracker';
 
 import { Transaction, CategoryItem, TransactionType } from '@/lib/storebook-types';
 import {
@@ -33,6 +34,7 @@ const getCurrentYearMonth = () => {
 };
 
 export default function StorebookPage() {
+  const [activeTab, setActiveTab] = useState<'ledger' | 'stock'>('ledger');
   const [yearMonth, setYearMonth] = useState(getCurrentYearMonth);
   const [carryOver, setCarryOver] = useState(0);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -42,7 +44,6 @@ export default function StorebookPage() {
 
   useEffect(() => {
     async function loadCats() {
-      // Fix any mismatched year_month in DB first
       await fixTransactionMonths();
       const cats = await fetchCategories();
       setIncomeCategories(cats.income);
@@ -107,8 +108,7 @@ export default function StorebookPage() {
     isRecurring: boolean;
     date: string;
   }) => {
-    // Dynamically derive the correct target YYYY-MM from the transaction date!
-    const targetYearMonth = txPayload.date.substring(0, 7); // e.g. "2026-08"
+    const targetYearMonth = txPayload.date.substring(0, 7);
     const created = await addTransaction(targetYearMonth, txPayload);
 
     // Merge newly used category into state
@@ -125,7 +125,6 @@ export default function StorebookPage() {
     if (targetYearMonth === yearMonth) {
       setTransactions((prev) => [created, ...prev]);
     } else {
-      // Automatically switch view to the added transaction's month!
       setYearMonth(targetYearMonth);
     }
   };
@@ -195,13 +194,17 @@ export default function StorebookPage() {
         }}
       >
         <Header
+          activeTab={activeTab}
+          onSelectTab={setActiveTab}
           yearMonth={yearMonth}
           onPrevMonth={handlePrevMonth}
           onNextMonth={handleNextMonth}
           onSyncLocalData={handleSyncLocalData}
         />
 
-        {isLoading ? (
+        {activeTab === 'stock' ? (
+          <StockTracker />
+        ) : isLoading ? (
           <div style={{ padding: '80px 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px', color: '#64748b' }}>
             <div style={{
               width: '32px', height: '32px',
