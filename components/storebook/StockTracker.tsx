@@ -5,14 +5,22 @@ import { StockItem, StockQuote } from '@/lib/stock-types';
 import { fetchUserStocks, addStock, deleteStock } from '@/lib/stock-service';
 import { formatCurrency } from '@/lib/storebook-utils';
 
+interface StockSearchResult {
+  symbol: string;
+  name: string;
+  market: 'KR' | 'US';
+  currency: 'KRW' | 'USD';
+  type: string;
+}
+
 const PRESET_STOCKS = [
   { name: '삼성전자', symbol: '005930.KS', market: 'KR' as const, currency: 'KRW' as const },
   { name: 'SK하이닉스', symbol: '000660.KS', market: 'KR' as const, currency: 'KRW' as const },
+  { name: '카카오', symbol: '035720.KS', market: 'KR' as const, currency: 'KRW' as const },
   { name: '현대차', symbol: '005380.KS', market: 'KR' as const, currency: 'KRW' as const },
   { name: '애플', symbol: 'AAPL', market: 'US' as const, currency: 'USD' as const },
   { name: '엔비디아', symbol: 'NVDA', market: 'US' as const, currency: 'USD' as const },
   { name: '테슬라', symbol: 'TSLA', market: 'US' as const, currency: 'USD' as const },
-  { name: '마이크로소프트', symbol: 'MSFT', market: 'US' as const, currency: 'USD' as const },
 ];
 
 const panelStyle: React.CSSProperties = {
@@ -42,6 +50,12 @@ export default function StockTracker() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingQuotes, setIsFetchingQuotes] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<StockSearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
 
   // Form State
   const [symbol, setSymbol] = useState('005930.KS');
@@ -87,6 +101,44 @@ export default function StockTracker() {
       fetchQuotes(stocks);
     }
   }, [stocks, fetchQuotes]);
+
+  // Real-time Stock Search Autocomplete
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      setShowDropdown(false);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await fetch(`/api/stock/search?q=${encodeURIComponent(searchQuery.trim())}`);
+        if (res.ok) {
+          const data = await res.json();
+          setSearchResults(data.results || []);
+          setShowDropdown(true);
+        }
+      } catch (e) {
+        console.warn('Stock search error', e);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Select stock from search dropdown
+  const handleSelectSearchResult = (result: StockSearchResult) => {
+    setSymbol(result.symbol);
+    setName(result.name);
+    setMarket(result.market);
+    setCurrency(result.currency);
+    setSearchQuery(result.name);
+    setShowDropdown(false);
+    setAvgPrice(result.currency === 'USD' ? '180' : '70000');
+  };
 
   // Calculations
   let totalInvestedKRW = 0;
@@ -142,6 +194,7 @@ export default function StockTracker() {
 
     setStocks((prev) => [newStock, ...prev]);
     setIsModalOpen(false);
+    setSearchQuery('');
   };
 
   // Delete stock handler
@@ -195,7 +248,7 @@ export default function StockTracker() {
               boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)', display: 'flex', alignItems: 'center', gap: '6px',
             }}
           >
-            <span>+ 종목 추가</span>
+            <span>+ 종목 검색 및 추가</span>
           </button>
         </div>
       </div>
@@ -258,7 +311,7 @@ export default function StockTracker() {
 
               {stockRows.length === 0 ? (
                 <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
-                  등록된 주식이 없습니다. 오른쪽 상단 [+ 종목 추가] 버튼을 눌러보세요!
+                  등록된 주식이 없습니다. 오른쪽 상단 [+ 종목 검색 및 추가] 버튼을 눌러보세요!
                 </div>
               ) : (
                 <div style={{ overflowX: 'auto' }}>
@@ -352,18 +405,78 @@ export default function StockTracker() {
         </>
       )}
 
-      {/* Add Stock Modal */}
+      {/* Add Stock Modal with Real-time Search */}
       {isModalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
           <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: '20px', padding: '24px', width: '100%', maxWidth: '480px', boxShadow: '0 25px 50px rgba(0,0,0,0.5)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f1f5f9' }}>+ 새로운 주식 종목 추가</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f1f5f9' }}>🔍 상장 주식 검색 및 추가</h3>
               <button onClick={() => setIsModalOpen(false)} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: '1.2rem', fontWeight: 700 }}>✕</button>
+            </div>
+
+            {/* Real-time Stock Search Input & Dropdown */}
+            <div style={{ position: 'relative', marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#22d3ee', marginBottom: '6px' }}>
+                🔍 종목 실시간 검색 (한글 또는 티커)
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="text"
+                  placeholder="예: 카카오, 네이버, SK하이닉스, AAPL, TSLA..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onFocus={() => { if (searchResults.length > 0) setShowDropdown(true); }}
+                  style={{
+                    width: '100%', background: '#020617', border: '1px solid #06b6d4', borderRadius: '12px',
+                    padding: '12px 14px', color: '#f1f5f9', fontSize: '0.95rem', fontWeight: 600, outline: 'none',
+                    boxShadow: '0 0 12px rgba(6, 182, 212, 0.2)',
+                  }}
+                />
+                {isSearching && (
+                  <span style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', fontSize: '0.8rem', color: '#06b6d4' }}>
+                    검색 중...
+                  </span>
+                )}
+              </div>
+
+              {/* Search Dropdown */}
+              {showDropdown && searchResults.length > 0 && (
+                <div style={{
+                  position: 'absolute', left: 0, right: 0, top: '100%', marginTop: '6px',
+                  background: '#020617', border: '1px solid #1e293b', borderRadius: '12px',
+                  maxHeight: '200px', overflowY: 'auto', zIndex: 60, boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
+                }}>
+                  {searchResults.map((res) => (
+                    <div
+                      key={res.symbol}
+                      onClick={() => handleSelectSearchResult(res)}
+                      style={{
+                        padding: '10px 14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        borderBottom: '1px solid rgba(30,41,59,0.5)', cursor: 'pointer', transition: 'background 0.2s',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = '#1e293b')}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <div>
+                        <span style={{ fontWeight: 700, color: '#f1f5f9', fontSize: '0.85rem' }}>{res.name}</span>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', marginLeft: '6px' }}>({res.symbol})</span>
+                      </div>
+                      <span style={{
+                        fontSize: '0.65rem', fontWeight: 700, padding: '2px 6px', borderRadius: '4px',
+                        background: res.market === 'KR' ? 'rgba(59,130,246,0.2)' : 'rgba(168,85,247,0.2)',
+                        color: res.market === 'KR' ? '#60a5fa' : '#c084fc',
+                      }}>
+                        {res.market} · {res.currency}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick Presets */}
             <div style={{ marginBottom: '16px' }}>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>빠른 추천 종목 선택</label>
+              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '6px' }}>인기 종목 원클릭 선택</label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                 {PRESET_STOCKS.map((p) => (
                   <button
@@ -383,28 +496,27 @@ export default function StockTracker() {
             </div>
 
             <form onSubmit={handleAddStock} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>티커 코드 (Ticker)</label>
-                <input
-                  type="text"
-                  placeholder="예: 005930.KS 또는 AAPL"
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value)}
-                  required
-                  style={{ width: '100%', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', padding: '10px 14px', color: '#f1f5f9', fontSize: '0.9rem', outline: 'none' }}
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>종목명</label>
-                <input
-                  type="text"
-                  placeholder="예: 삼성전자, 애플"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  required
-                  style={{ width: '100%', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', padding: '10px 14px', color: '#f1f5f9', fontSize: '0.9rem', outline: 'none' }}
-                />
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>티커 코드</label>
+                  <input
+                    type="text"
+                    value={symbol}
+                    onChange={(e) => setSymbol(e.target.value)}
+                    required
+                    style={{ width: '100%', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', padding: '10px 14px', color: '#f1f5f9', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>종목명</label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                    style={{ width: '100%', background: '#020617', border: '1px solid #1e293b', borderRadius: '10px', padding: '10px 14px', color: '#f1f5f9', fontSize: '0.9rem', outline: 'none' }}
+                  />
+                </div>
               </div>
 
               <div style={{ display: 'flex', gap: '12px' }}>
