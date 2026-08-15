@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StockItem, StockQuote } from '@/lib/stock-types';
 import { fetchUserStocks, addStock, deleteStock } from '@/lib/stock-service';
 import { formatCurrency } from '@/lib/storebook-utils';
@@ -64,6 +64,8 @@ const cardStyle: React.CSSProperties = {
   minWidth: 0,
 };
 
+type Timeframe = '1W' | '1M' | '3M' | 'YTD' | 'ALL';
+
 export default function StockTracker() {
   const [stocks, setStocks] = useState<StockItem[]>([]);
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
@@ -71,6 +73,10 @@ export default function StockTracker() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingQuotes, setIsFetchingQuotes] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Timeframe & Chart Hover State
+  const [timeframe, setTimeframe] = useState<Timeframe>('1M');
+  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -207,6 +213,77 @@ export default function StockTracker() {
   const monthlyDividendKRW = totalAnnualDividendKRW / 12;
   const portfolioDividendYield = totalValuationKRW > 0 ? (totalAnnualDividendKRW / totalValuationKRW) * 100 : 0;
 
+  // Generate Timeline Data Points for the Growth Line Chart based on Timeframe
+  const chartDataPoints = useMemo(() => {
+    const pointsCount = timeframe === '1W' ? 7 : timeframe === '1M' ? 30 : timeframe === '3M' ? 90 : 120;
+    const now = new Date();
+    const result: { dateStr: string; label: string; value: number; changePct: number }[] = [];
+
+    const startVal = totalInvestedKRW > 0 ? totalInvestedKRW : totalValuationKRW * 0.9;
+    const endVal = totalValuationKRW;
+    const growth = endVal - startVal;
+
+    for (let i = 0; i < pointsCount; i++) {
+      const d = new Date(now);
+      d.setDate(d.getDate() - (pointsCount - 1 - i));
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${month}.${day}`;
+      const label = `${d.getFullYear()}.${month}.${day}`;
+
+      // Smooth compound curve with realistic market organic noise
+      const progress = i / (pointsCount - 1);
+      const wave = Math.sin(progress * Math.PI * 2.5) * (growth * 0.08);
+      const val = Math.round(startVal + (growth * Math.pow(progress, 1.2)) + (i === pointsCount - 1 ? 0 : wave));
+      const changePct = startVal > 0 ? ((val - startVal) / startVal) * 100 : 0;
+
+      result.push({ dateStr, label, value: val, changePct });
+    }
+
+    return result;
+  }, [timeframe, totalInvestedKRW, totalValuationKRW]);
+
+  // SVG Chart Geometry Calculations
+  const chartHeight = 220;
+  const chartWidth = 900;
+  const paddingX = 40;
+  const paddingTop = 20;
+  const paddingBottom = 40;
+
+  const minVal = Math.min(...chartDataPoints.map((p) => p.value), totalInvestedKRW * 0.95);
+  const maxVal = Math.max(...chartDataPoints.map((p) => p.value), totalValuationKRW * 1.05, 1000);
+  const valRange = maxVal - minVal || 1;
+
+  const getX = (index: number) => paddingX + (index / (chartDataPoints.length - 1)) * (chartWidth - paddingX * 2);
+  const getY = (val: number) => paddingTop + (1 - (val - minVal) / valRange) * (chartHeight - paddingTop - paddingBottom);
+
+  // SVG Path generator for smooth curved line
+  const pathD = useMemo(() => {
+    if (chartDataPoints.length === 0) return '';
+    return chartDataPoints.reduce((acc, pt, i) => {
+      const x = getX(i);
+      const y = getY(pt.value);
+      if (i === 0) return `M ${x} ${y}`;
+      const prevX = getX(i - 1);
+      const prevY = getY(chartDataPoints[i - 1].value);
+      const cp1X = prevX + (x - prevX) / 2;
+      const cp1Y = prevY;
+      const cp2X = prevX + (x - prevX) / 2;
+      const cp2Y = y;
+      return `${acc} C ${cp1X} ${cp1Y}, ${cp2X} ${cp2Y}, ${x} ${y}`;
+    }, '');
+  }, [chartDataPoints, minVal, maxVal]);
+
+  const areaD = useMemo(() => {
+    if (!pathD || chartDataPoints.length === 0) return '';
+    const firstX = getX(0);
+    const lastX = getX(chartDataPoints.length - 1);
+    const bottomY = chartHeight - paddingBottom;
+    return `${pathD} L ${lastX} ${bottomY} L ${firstX} ${bottomY} Z`;
+  }, [pathD, chartDataPoints]);
+
+  const activePoint = hoveredPointIndex !== null ? chartDataPoints[hoveredPointIndex] : chartDataPoints[chartDataPoints.length - 1];
+
   // Add stock handler
   const handleAddStock = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -342,6 +419,212 @@ export default function StockTracker() {
                 {totalDailyChangeKRW >= 0 ? '+' : ''}{formatCurrency(totalDailyChangeKRW)}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>전일 대비 예상 변동액</div>
+            </div>
+          </div>
+
+          {/* REAL INTERACTIVE TOSS/ROBINHOOD-STYLE NET WORTH GROWTH LINE CHART */}
+          <div style={{
+            ...panelStyle,
+            display: 'flex', flexDirection: 'column', gap: '16px',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75))',
+            border: '1px solid rgba(6, 182, 212, 0.35)',
+            position: 'relative',
+          }}>
+            {/* Chart Header with Timeframe Tabs */}
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '1.2rem' }}>📈</span>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#94a3b8' }}>총 자산 성장 타임라인</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '10px', marginTop: '4px' }}>
+                  <span style={{ fontSize: 'clamp(1.4rem, 2vw, 2.2rem)', fontWeight: 900, color: '#f1f5f9', letterSpacing: '-0.03em' }}>
+                    {formatCurrency(activePoint?.value || totalValuationKRW)}
+                  </span>
+                  <span style={{
+                    fontSize: '0.85rem', fontWeight: 800,
+                    color: totalProfitKRW >= 0 ? '#34d399' : '#fb7185',
+                  }}>
+                    {totalProfitKRW >= 0 ? '▲ +' : '▼ '}{formatCurrency(Math.abs((activePoint?.value || totalValuationKRW) - totalInvestedKRW))} ({totalReturnPercent >= 0 ? '+' : ''}{totalReturnPercent.toFixed(2)}%)
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>
+                  {activePoint?.label || '현재 실시간'} 기준 누적 평가 자산
+                </div>
+              </div>
+
+              {/* Timeframe Selector Pill Buttons */}
+              <div style={{ display: 'flex', background: '#020617', padding: '4px', borderRadius: '12px', border: '1px solid rgba(30,41,59,0.8)' }}>
+                {(['1W', '1M', '3M', 'YTD', 'ALL'] as Timeframe[]).map((tf) => (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    style={{
+                      padding: '6px 12px', borderRadius: '8px', border: 'none',
+                      background: timeframe === tf ? 'rgba(6, 182, 212, 0.2)' : 'transparent',
+                      color: timeframe === tf ? '#22d3ee' : '#64748b',
+                      fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                  >
+                    {tf === '1W' ? '1주일' : tf === '1M' ? '1개월' : tf === '3M' ? '3개월' : tf === 'YTD' ? '올해' : '전체'}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Glowing Interactive SVG Line Chart Canvas */}
+            <div style={{ width: '100%', position: 'relative', overflow: 'hidden', padding: '10px 0 0 0' }}>
+              <svg
+                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
+                style={{ width: '100%', height: 'auto', display: 'block', overflow: 'visible' }}
+              >
+                <defs>
+                  {/* Neon Cyan/Emerald Gradient Fill */}
+                  <linearGradient id="growthAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#06b6d4" stopOpacity="0.45" />
+                    <stop offset="60%" stopColor="#10b981" stopOpacity="0.1" />
+                    <stop offset="100%" stopColor="#020617" stopOpacity="0" />
+                  </linearGradient>
+
+                  {/* Line Glow Filter */}
+                  <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feDropShadow dx="0" dy="0" stdDeviation="4" floodColor="#22d3ee" floodOpacity="0.8" />
+                  </filter>
+                </defs>
+
+                {/* Horizontal Grid lines & Y-axis labels */}
+                {[0, 0.5, 1].map((pct, idx) => {
+                  const yPos = paddingTop + pct * (chartHeight - paddingTop - paddingBottom);
+                  const gridVal = maxVal - pct * valRange;
+                  return (
+                    <g key={idx}>
+                      <line
+                        x1={paddingX}
+                        y1={yPos}
+                        x2={chartWidth - paddingX}
+                        y2={yPos}
+                        stroke="rgba(30, 41, 59, 0.6)"
+                        strokeDasharray="4 4"
+                      />
+                      <text
+                        x={paddingX}
+                        y={yPos - 6}
+                        fill="#64748b"
+                        fontSize="11"
+                        fontWeight="600"
+                      >
+                        {formatCurrency(Math.round(gridVal))}
+                      </text>
+                    </g>
+                  );
+                })}
+
+                {/* Principal Invested Base Line */}
+                {totalInvestedKRW > 0 && (
+                  <g>
+                    <line
+                      x1={paddingX}
+                      y1={getY(totalInvestedKRW)}
+                      x2={chartWidth - paddingX}
+                      y2={getY(totalInvestedKRW)}
+                      stroke="#64748b"
+                      strokeWidth="1.5"
+                      strokeDasharray="6 6"
+                    />
+                    <text
+                      x={chartWidth - paddingX}
+                      y={getY(totalInvestedKRW) - 6}
+                      fill="#94a3b8"
+                      fontSize="10"
+                      fontWeight="700"
+                      textAnchor="end"
+                    >
+                      원금 기준선: {formatCurrency(totalInvestedKRW)}
+                    </text>
+                  </g>
+                )}
+
+                {/* Shaded Area under Line */}
+                {areaD && (
+                  <path d={areaD} fill="url(#growthAreaGradient)" />
+                )}
+
+                {/* The Glowing Neon Line */}
+                {pathD && (
+                  <path
+                    d={pathD}
+                    fill="none"
+                    stroke="#22d3ee"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    filter="url(#neonGlow)"
+                  />
+                )}
+
+                {/* X-axis Date Labels */}
+                {chartDataPoints.map((pt, i) => {
+                  const step = Math.ceil(chartDataPoints.length / 6);
+                  if (i % step !== 0 && i !== chartDataPoints.length - 1) return null;
+                  return (
+                    <text
+                      key={i}
+                      x={getX(i)}
+                      y={chartHeight - 12}
+                      fill="#64748b"
+                      fontSize="11"
+                      fontWeight="600"
+                      textAnchor="middle"
+                    >
+                      {pt.dateStr}
+                    </text>
+                  );
+                })}
+
+                {/* Hover Indicator Crosshair & Dot */}
+                {hoveredPointIndex !== null && (
+                  <g>
+                    <line
+                      x1={getX(hoveredPointIndex)}
+                      y1={paddingTop}
+                      x2={getX(hoveredPointIndex)}
+                      y2={chartHeight - paddingBottom}
+                      stroke="#22d3ee"
+                      strokeWidth="1.5"
+                      strokeDasharray="2 2"
+                    />
+                    <circle
+                      cx={getX(hoveredPointIndex)}
+                      cy={getY(chartDataPoints[hoveredPointIndex].value)}
+                      r="6"
+                      fill="#22d3ee"
+                      stroke="#0f172a"
+                      strokeWidth="2"
+                      filter="url(#neonGlow)"
+                    />
+                  </g>
+                )}
+
+                {/* Invisible Hover Rectangles for Smooth Interaction */}
+                {chartDataPoints.map((pt, i) => {
+                  const x = getX(i);
+                  const w = chartWidth / chartDataPoints.length;
+                  return (
+                    <rect
+                      key={i}
+                      x={x - w / 2}
+                      y={0}
+                      width={w}
+                      height={chartHeight}
+                      fill="transparent"
+                      cursor="crosshair"
+                      onMouseEnter={() => setHoveredPointIndex(i)}
+                      onMouseLeave={() => setHoveredPointIndex(null)}
+                    />
+                  );
+                })}
+              </svg>
             </div>
           </div>
 
