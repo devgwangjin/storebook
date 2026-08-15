@@ -13,6 +13,27 @@ interface StockSearchResult {
   type: string;
 }
 
+// Estimated annual dividend yield (%) database for popular stocks/ETFs
+const ESTIMATED_DIVIDEND_YIELDS: Record<string, number> = {
+  '005930.KS': 2.3, // 삼성전자
+  '000660.KS': 1.2, // SK하이닉스
+  '035420.KS': 0.8, // NAVER
+  '035720.KS': 0.5, // 카카오
+  '005380.KS': 4.5, // 현대차
+  '360750.KS': 1.4, // TIGER 미국S&P500
+  '379800.KS': 1.4, // KODEX 미국S&P500TR
+  '379810.KS': 1.4, // KODEX 미국나스닥100TR
+  '133690.KS': 0.8, // TIGER 미국나스닥100
+  '446720.KS': 3.6, // SOL 미국배당다우존스
+  'AAPL': 0.5,     // Apple
+  'NVDA': 0.1,     // NVIDIA
+  'MSFT': 0.7,     // Microsoft
+  'AMZN': 0.0,     // Amazon
+  'GOOGL': 0.4,    // Alphabet/Google
+  'META': 0.4,     // Meta
+  'TSM': 1.5,      // TSMC
+};
+
 const PRESET_STOCKS = [
   { name: '삼성전자', symbol: '005930.KS', market: 'KR' as const, currency: 'KRW' as const },
   { name: 'SK하이닉스', symbol: '000660.KS', market: 'KR' as const, currency: 'KRW' as const },
@@ -144,6 +165,9 @@ export default function StockTracker() {
   let totalInvestedKRW = 0;
   let totalValuationKRW = 0;
   let totalDailyChangeKRW = 0;
+  let krValuationKRW = 0;
+  let usValuationKRW = 0;
+  let totalAnnualDividendKRW = 0;
 
   const stockRows = stocks.map((stock) => {
     const quote = quotes[stock.symbol];
@@ -157,6 +181,18 @@ export default function StockTracker() {
     const returnPercent = investedKRW > 0 ? (profitKRW / investedKRW) * 100 : 0;
     const dailyChangeKRW = quote ? (quote.change * stock.quantity * rate) : 0;
 
+    // Market distribution
+    if (stock.market === 'KR') {
+      krValuationKRW += valuationKRW;
+    } else {
+      usValuationKRW += valuationKRW;
+    }
+
+    // Dividend calculation
+    const divYieldPct = ESTIMATED_DIVIDEND_YIELDS[stock.symbol] || (stock.market === 'KR' ? 1.8 : 0.8);
+    const estAnnualDividendKRW = valuationKRW * (divYieldPct / 100);
+    totalAnnualDividendKRW += estAnnualDividendKRW;
+
     totalInvestedKRW += investedKRW;
     totalValuationKRW += valuationKRW;
     totalDailyChangeKRW += dailyChangeKRW;
@@ -169,12 +205,21 @@ export default function StockTracker() {
       profitKRW,
       returnPercent,
       dailyChangeKRW,
+      divYieldPct,
+      estAnnualDividendKRW,
       quote,
     };
   });
 
   const totalProfitKRW = totalValuationKRW - totalInvestedKRW;
   const totalReturnPercent = totalInvestedKRW > 0 ? (totalProfitKRW / totalInvestedKRW) * 100 : 0;
+  const monthlyDividendKRW = totalAnnualDividendKRW / 12;
+  const portfolioDividendYield = totalValuationKRW > 0 ? (totalAnnualDividendKRW / totalValuationKRW) * 100 : 0;
+
+  const krPercent = totalValuationKRW > 0 ? Math.round((krValuationKRW / totalValuationKRW) * 100) : 0;
+  const usPercent = totalValuationKRW > 0 ? 100 - krPercent : 0;
+  const usValuationUSD = exchangeRate > 0 ? usValuationKRW / exchangeRate : 0;
+  const fxSensitivity10Won = Math.round(usValuationUSD * 10);
 
   // Add stock handler
   const handleAddStock = async (e: React.FormEvent) => {
@@ -220,7 +265,7 @@ export default function StockTracker() {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <h2 style={{ fontSize: 'clamp(1.1rem, 1.3vw, 1.5rem)', fontWeight: 800, color: '#f1f5f9' }}>
-            📈 주식 투자 실시간 수익률 트래커
+            📈 주식 투자 실시간 수익률 & 배당 트래커
           </h2>
           <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '6px', background: 'rgba(6,182,212,0.15)', color: '#22d3ee', fontWeight: 600, border: '1px solid rgba(6,182,212,0.3)' }}>
             무료 실시간 시세 (1 USD = {exchangeRate.toLocaleString()}원)
@@ -260,12 +305,12 @@ export default function StockTracker() {
         </div>
       ) : (
         <>
-          {/* Summary Cards */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(220px, 100%), 1fr))', gap: 'clamp(12px, 1vw, 20px)' }}>
+          {/* Summary Cards Grid (5 Cards) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(200px, 100%), 1fr))', gap: 'clamp(12px, 1vw, 20px)' }}>
             {/* Total Valuation */}
             <div style={cardStyle}>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>총 주식 자산</div>
-              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 2rem)', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 1.8rem)', fontWeight: 800, color: '#f1f5f9', letterSpacing: '-0.02em' }}>
                 {formatCurrency(totalValuationKRW)}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>환율 적용 원화 총 평가금액</div>
@@ -274,7 +319,7 @@ export default function StockTracker() {
             {/* Total Invested */}
             <div style={cardStyle}>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>총 투자 원금</div>
-              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 2rem)', fontWeight: 800, color: '#cbd5e1', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 1.8rem)', fontWeight: 800, color: '#cbd5e1', letterSpacing: '-0.02em' }}>
                 {formatCurrency(totalInvestedKRW)}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>총 매수 평단가 합계</div>
@@ -283,7 +328,7 @@ export default function StockTracker() {
             {/* Total Profit / Loss */}
             <div style={cardStyle}>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>총 평가 손익 (수익률)</div>
-              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 2rem)', fontWeight: 800, color: totalProfitKRW >= 0 ? '#10b981' : '#f43f5e', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 1.8rem)', fontWeight: 800, color: totalProfitKRW >= 0 ? '#10b981' : '#f43f5e', letterSpacing: '-0.02em' }}>
                 {totalProfitKRW >= 0 ? '+' : ''}{formatCurrency(totalProfitKRW)}
               </div>
               <div style={{ fontSize: '0.8rem', fontWeight: 700, color: totalReturnPercent >= 0 ? '#10b981' : '#f43f5e', marginTop: '4px' }}>
@@ -291,13 +336,58 @@ export default function StockTracker() {
               </div>
             </div>
 
+            {/* Monthly Dividend Passive Income */}
+            <div style={{ ...cardStyle, border: '1px solid rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.08)' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#fbbf24', textTransform: 'uppercase', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <span>💵 월 예상 불로소득 (배당금)</span>
+              </div>
+              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 1.8rem)', fontWeight: 800, color: '#fef08a', letterSpacing: '-0.02em' }}>
+                {formatCurrency(monthlyDividendKRW)} <span style={{ fontSize: '0.8rem', color: '#fde047' }}>/ 월</span>
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#fef3c7', marginTop: '4px' }}>
+                연간 예상: {formatCurrency(totalAnnualDividendKRW)} (연 {portfolioDividendYield.toFixed(1)}%)
+              </div>
+            </div>
+
             {/* Daily Change */}
             <div style={cardStyle}>
               <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>오늘의 변동폭</div>
-              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 2rem)', fontWeight: 800, color: totalDailyChangeKRW >= 0 ? '#22d3ee' : '#f43f5e', letterSpacing: '-0.02em' }}>
+              <div style={{ fontSize: 'clamp(1.25rem, 1.8vw, 1.8rem)', fontWeight: 800, color: totalDailyChangeKRW >= 0 ? '#22d3ee' : '#f43f5e', letterSpacing: '-0.02em' }}>
                 {totalDailyChangeKRW >= 0 ? '+' : ''}{formatCurrency(totalDailyChangeKRW)}
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>전일 대비 예상 변동액</div>
+            </div>
+          </div>
+
+          {/* New Feature: KR vs US Market & Currency Sensitivity Banner */}
+          <div style={{
+            ...panelStyle,
+            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6))',
+            border: '1px solid rgba(6, 182, 212, 0.3)',
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '240px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '1.1rem' }}>📊</span>
+                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f1f5f9' }}>국내 (KR) vs 해외 (US) 자산 비중</span>
+              </div>
+              {/* Dual Progress Bar */}
+              <div style={{ display: 'flex', height: '10px', width: '280px', borderRadius: '9999px', overflow: 'hidden', background: '#020617', border: '1px solid rgba(30,41,59,0.8)' }}>
+                <div style={{ width: `${krPercent}%`, background: '#3b82f6', transition: 'width 0.5s ease' }} title={`국내 ${krPercent}%`} />
+                <div style={{ width: `${usPercent}%`, background: '#a855f7', transition: 'width 0.5s ease' }} title={`해외 ${usPercent}%`} />
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', gap: '12px' }}>
+                <span style={{ color: '#60a5fa' }}>🇰🇷 국내주식 {krPercent}% ({formatCurrency(krValuationKRW)})</span>
+                <span style={{ color: '#c084fc' }}>🇺🇸 해외주식 {usPercent}% (${usValuationUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>💱 원/달러 환율 민감도 분석</div>
+              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#22d3ee' }}>
+                환율 10원 상승 시 <span style={{ color: '#34d399', fontWeight: 800 }}>+{formatCurrency(fxSensitivity10Won)}</span> 자산 평가 증대
+              </div>
+              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>현재 적용 환율: 1 USD = {exchangeRate.toLocaleString()}원</div>
             </div>
           </div>
 
@@ -324,6 +414,7 @@ export default function StockTracker() {
                         <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>현재가</th>
                         <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>평가금액</th>
                         <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>수익률</th>
+                        <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'right' }}>예상 배당금</th>
                         <th style={{ padding: '10px 8px', fontWeight: 600, textAlign: 'center' }}>삭제</th>
                       </tr>
                     </thead>
@@ -351,6 +442,10 @@ export default function StockTracker() {
                           <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 800, color: row.profitKRW >= 0 ? '#10b981' : '#f43f5e' }}>
                             <div>{row.profitKRW >= 0 ? '+' : ''}{row.returnPercent.toFixed(2)}%</div>
                             <div style={{ fontSize: '0.7rem', fontWeight: 600 }}>({formatCurrency(row.profitKRW)})</div>
+                          </td>
+                          <td style={{ padding: '12px 8px', textAlign: 'right', fontWeight: 700, color: '#fde047' }}>
+                            <div>{formatCurrency(row.estAnnualDividendKRW)} / 년</div>
+                            <div style={{ fontSize: '0.68rem', color: '#eab308' }}>(연 {row.divYieldPct}%)</div>
                           </td>
                           <td style={{ padding: '12px 8px', textAlign: 'center' }}>
                             <button
