@@ -71,7 +71,6 @@ export default function StockTracker() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingQuotes, setIsFetchingQuotes] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [hoveredStockIndex, setHoveredStockIndex] = useState<number | null>(null);
 
   // Search State
   const [searchQuery, setSearchQuery] = useState('');
@@ -246,9 +245,6 @@ export default function StockTracker() {
 
   const chartColors = ['#06b6d4', '#10b981', '#a855f7', '#f59e0b', '#ec4899', '#3b82f6', '#f43f5e'];
 
-  // Find maximum value among all stock items for chart scaling
-  const maxStockValuation = Math.max(...stockRows.map(s => Math.max(s.investedKRW, s.valuationKRW)), 100000);
-
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 1.5vw, 24px)', width: '100%' }}>
       {/* Top Controls & Refresh */}
@@ -347,186 +343,6 @@ export default function StockTracker() {
               </div>
               <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '6px' }}>전일 대비 예상 변동액</div>
             </div>
-          </div>
-
-          {/* REAL INTERACTIVE ASSET GROWTH COMPARISON CHART GRAPH (원금 vs 평가금액 입체 비교 그래프) */}
-          <div style={{
-            ...panelStyle,
-            display: 'flex', flexDirection: 'column', gap: '20px',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 41, 59, 0.75))',
-            border: '1px solid rgba(6, 182, 212, 0.35)',
-          }}>
-            {/* Graph Header */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <div style={{
-                  width: '36px', height: '36px', borderRadius: '10px',
-                  background: 'rgba(6, 182, 212, 0.15)', border: '1px solid rgba(6, 182, 212, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem',
-                }}>
-                  📊
-                </div>
-                <div>
-                  <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    자산 성장 비교 그래프 (투자 원금 vs 현재 평가금액)
-                  </h3>
-                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
-                    종목별 및 전체 포트폴리오의 매수 원금 대비 실시간 평가 자산의 성과를 직관적인 차트로 시각화합니다.
-                  </p>
-                </div>
-              </div>
-
-              {/* Legend & Total Badge */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#64748b', display: 'inline-block' }} />
-                  투자 원금
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>
-                  <span style={{ width: '10px', height: '10px', borderRadius: '3px', background: '#10b981', display: 'inline-block' }} />
-                  현재 평가금액 (수익)
-                </div>
-                <div style={{
-                  padding: '6px 14px', borderRadius: '12px',
-                  background: totalProfitKRW >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                  border: `1px solid ${totalProfitKRW >= 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(244, 63, 94, 0.4)'}`,
-                  display: 'flex', alignItems: 'center', gap: '6px',
-                }}>
-                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#cbd5e1' }}>총 수익률:</span>
-                  <span style={{ fontSize: '0.95rem', fontWeight: 800, color: totalProfitKRW >= 0 ? '#10b981' : '#f43f5e' }}>
-                    {totalReturnPercent >= 0 ? '▲ +' : '▼ '}{totalReturnPercent.toFixed(2)}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            {/* Visual Comparative Graph Canvas */}
-            {stockRows.length === 0 ? (
-              <div style={{ padding: '40px 0', textAlign: 'center', color: '#64748b', fontSize: '0.85rem' }}>
-                등록된 종목이 없습니다. 종목을 추가하시면 실시간 차트가 생성됩니다!
-              </div>
-            ) : (
-              <div style={{
-                background: '#020617', padding: 'clamp(16px, 1.5vw, 24px)',
-                borderRadius: '16px', border: '1px solid rgba(30, 41, 59, 0.8)',
-                display: 'flex', flexDirection: 'column', gap: '20px',
-              }}>
-                {/* 1. Total Portfolio Big Comparison Bar */}
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#e2e8f0' }}>전체 포트폴리오 종합 성장</span>
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '0.8rem', fontWeight: 700 }}>
-                      <span style={{ color: '#94a3b8' }}>원금: {formatCurrency(totalInvestedKRW)}</span>
-                      <span style={{ color: totalProfitKRW >= 0 ? '#34d399' : '#fb7185' }}>
-                        평가: {formatCurrency(totalValuationKRW)} ({totalProfitKRW >= 0 ? '+' : ''}{totalReturnPercent.toFixed(2)}%)
-                      </span>
-                    </div>
-                  </div>
-                  {/* Super Imposed Growth Bar */}
-                  <div style={{ position: 'relative', width: '100%', height: '22px', background: 'rgba(30,41,59,0.6)', borderRadius: '12px', overflow: 'hidden' }}>
-                    {/* Valuation Bar */}
-                    <div style={{
-                      position: 'absolute', left: 0, top: 0, bottom: 0,
-                      width: totalValuationKRW >= totalInvestedKRW ? '100%' : `${Math.round((totalValuationKRW / Math.max(totalInvestedKRW, 1)) * 100)}%`,
-                      background: totalProfitKRW >= 0 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #e11d48, #f43f5e)',
-                      borderRadius: '12px', transition: 'width 0.6s cubic-bezier(0.4, 0, 0.2, 1)',
-                    }} />
-                    {/* Principal Overlay Line Marker */}
-                    {totalValuationKRW >= totalInvestedKRW && totalValuationKRW > 0 && (
-                      <div
-                        style={{
-                          position: 'absolute',
-                          left: `${Math.min(Math.round((totalInvestedKRW / totalValuationKRW) * 100), 99)}%`,
-                          top: 0, bottom: 0, width: '3px', background: '#f8fafc',
-                          boxShadow: '0 0 8px rgba(255,255,255,0.8)',
-                          zIndex: 5,
-                        }}
-                        title={`원금 기준선: ${formatCurrency(totalInvestedKRW)}`}
-                      />
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#64748b', marginTop: '4px' }}>
-                    <span>0원</span>
-                    <span>흰색 세로선 = 매수 원금 기준선 ({formatCurrency(totalInvestedKRW)})</span>
-                    <span>최종 평가: {formatCurrency(totalValuationKRW)}</span>
-                  </div>
-                </div>
-
-                <div style={{ height: '1px', background: 'rgba(30, 41, 59, 0.8)' }} />
-
-                {/* 2. Stock-by-Stock Vertical/Horizontal Comparative Bars */}
-                <div>
-                  <div style={{ fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8', marginBottom: '14px', textTransform: 'uppercase' }}>
-                    종목별 원금 대비 실시간 평가금액 비교
-                  </div>
-
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-                    {stockRows.map((row, idx) => {
-                      const isHovered = hoveredStockIndex === idx;
-                      const investedHeightPct = Math.round((row.investedKRW / maxStockValuation) * 100);
-                      const valuationHeightPct = Math.round((row.valuationKRW / maxStockValuation) * 100);
-
-                      return (
-                        <div
-                          key={row.id}
-                          onMouseEnter={() => setHoveredStockIndex(idx)}
-                          onMouseLeave={() => setHoveredStockIndex(null)}
-                          style={{
-                            padding: '10px 14px', borderRadius: '12px',
-                            background: isHovered ? 'rgba(30, 41, 59, 0.6)' : 'rgba(15, 23, 42, 0.4)',
-                            border: isHovered ? '1px solid #06b6d4' : '1px solid rgba(30, 41, 59, 0.4)',
-                            transition: 'all 0.2s',
-                          }}
-                        >
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ fontWeight: 800, color: '#f1f5f9', fontSize: '0.85rem' }}>{row.name}</span>
-                              <span style={{ fontSize: '0.7rem', color: '#64748b' }}>({row.symbol})</span>
-                              <span style={{
-                                fontSize: '0.7rem', fontWeight: 800, padding: '2px 8px', borderRadius: '6px',
-                                background: row.profitKRW >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
-                                color: row.profitKRW >= 0 ? '#34d399' : '#fb7185',
-                              }}>
-                                {row.profitKRW >= 0 ? '▲ +' : '▼ '}{row.returnPercent.toFixed(2)}%
-                              </span>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '12px', fontSize: '0.8rem', fontWeight: 600 }}>
-                              <span style={{ color: '#94a3b8' }}>원금: {formatCurrency(row.investedKRW)}</span>
-                              <span style={{ color: row.profitKRW >= 0 ? '#34d399' : '#fb7185', fontWeight: 700 }}>
-                                평가: {formatCurrency(row.valuationKRW)} ({row.profitKRW >= 0 ? '+' : ''}{formatCurrency(row.profitKRW)})
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Dual Paired Bars */}
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                            {/* Invested Bar */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ width: '40px', fontSize: '0.65rem', color: '#64748b', textAlign: 'right' }}>원금</span>
-                              <div style={{ flex: 1, height: '8px', background: 'rgba(30,41,59,0.5)', borderRadius: '9999px', overflow: 'hidden' }}>
-                                <div style={{ height: '100%', borderRadius: '9999px', background: '#64748b', width: `${investedHeightPct}%`, transition: 'width 0.5s ease' }} />
-                              </div>
-                            </div>
-                            {/* Valuation Bar */}
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              <span style={{ width: '40px', fontSize: '0.65rem', color: row.profitKRW >= 0 ? '#34d399' : '#fb7185', textAlign: 'right', fontWeight: 700 }}>평가</span>
-                              <div style={{ flex: 1, height: '8px', background: 'rgba(30,41,59,0.5)', borderRadius: '9999px', overflow: 'hidden' }}>
-                                <div style={{
-                                  height: '100%', borderRadius: '9999px',
-                                  background: row.profitKRW >= 0 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #e11d48, #f43f5e)',
-                                  width: `${valuationHeightPct}%`, transition: 'width 0.5s ease',
-                                }} />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Main Content Layout: Table (Left) + Asset Allocation (Right) */}
