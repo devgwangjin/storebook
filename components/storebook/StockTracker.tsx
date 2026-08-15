@@ -165,8 +165,6 @@ export default function StockTracker() {
   let totalInvestedKRW = 0;
   let totalValuationKRW = 0;
   let totalDailyChangeKRW = 0;
-  let krValuationKRW = 0;
-  let usValuationKRW = 0;
   let totalAnnualDividendKRW = 0;
 
   const stockRows = stocks.map((stock) => {
@@ -180,13 +178,6 @@ export default function StockTracker() {
     const profitKRW = valuationKRW - investedKRW;
     const returnPercent = investedKRW > 0 ? (profitKRW / investedKRW) * 100 : 0;
     const dailyChangeKRW = quote ? (quote.change * stock.quantity * rate) : 0;
-
-    // Market distribution
-    if (stock.market === 'KR') {
-      krValuationKRW += valuationKRW;
-    } else {
-      usValuationKRW += valuationKRW;
-    }
 
     // Dividend calculation
     const divYieldPct = ESTIMATED_DIVIDEND_YIELDS[stock.symbol] || (stock.market === 'KR' ? 1.8 : 0.8);
@@ -215,11 +206,6 @@ export default function StockTracker() {
   const totalReturnPercent = totalInvestedKRW > 0 ? (totalProfitKRW / totalInvestedKRW) * 100 : 0;
   const monthlyDividendKRW = totalAnnualDividendKRW / 12;
   const portfolioDividendYield = totalValuationKRW > 0 ? (totalAnnualDividendKRW / totalValuationKRW) * 100 : 0;
-
-  const krPercent = totalValuationKRW > 0 ? Math.round((krValuationKRW / totalValuationKRW) * 100) : 0;
-  const usPercent = totalValuationKRW > 0 ? 100 - krPercent : 0;
-  const usValuationUSD = exchangeRate > 0 ? usValuationKRW / exchangeRate : 0;
-  const fxSensitivity10Won = Math.round(usValuationUSD * 10);
 
   // Add stock handler
   const handleAddStock = async (e: React.FormEvent) => {
@@ -258,6 +244,11 @@ export default function StockTracker() {
   };
 
   const chartColors = ['#06b6d4', '#10b981', '#a855f7', '#f59e0b', '#ec4899', '#3b82f6', '#f43f5e'];
+
+  // Calculate Bar Chart Percentages for Investment Growth Comparison
+  const maxVal = Math.max(totalInvestedKRW, totalValuationKRW, 1);
+  const investedBarPct = Math.round((totalInvestedKRW / maxVal) * 100);
+  const valuationBarPct = Math.round((totalValuationKRW / maxVal) * 100);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'clamp(16px, 1.5vw, 24px)', width: '100%' }}>
@@ -359,35 +350,72 @@ export default function StockTracker() {
             </div>
           </div>
 
-          {/* New Feature: KR vs US Market & Currency Sensitivity Banner */}
+          {/* NEW FEATURE: Principal vs Valuation Growth Comparison Chart Banner */}
           <div style={{
             ...panelStyle,
-            display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px',
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(30, 41, 59, 0.6))',
-            border: '1px solid rgba(6, 182, 212, 0.3)',
+            display: 'flex', flexDirection: 'column', gap: '16px',
+            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.85), rgba(30, 41, 59, 0.7))',
+            border: '1px solid rgba(6, 182, 212, 0.35)',
           }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', minWidth: '240px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <span style={{ fontSize: '1.1rem' }}>📊</span>
-                <span style={{ fontSize: '0.95rem', fontWeight: 800, color: '#f1f5f9' }}>국내 (KR) vs 해외 (US) 자산 비중</span>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '1.2rem' }}>📊</span>
+                <div>
+                  <h3 style={{ fontSize: '1rem', fontWeight: 800, color: '#f1f5f9' }}>자산 상승률 비교 차트 (투자 원금 vs 현재 평가금액)</h3>
+                  <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '2px' }}>
+                    원금 대비 내 주식 자산이 얼마만큼 성장하고 있는지 직관적으로 비교합니다.
+                  </p>
+                </div>
               </div>
-              {/* Dual Progress Bar */}
-              <div style={{ display: 'flex', height: '10px', width: '280px', borderRadius: '9999px', overflow: 'hidden', background: '#020617', border: '1px solid rgba(30,41,59,0.8)' }}>
-                <div style={{ width: `${krPercent}%`, background: '#3b82f6', transition: 'width 0.5s ease' }} title={`국내 ${krPercent}%`} />
-                <div style={{ width: `${usPercent}%`, background: '#a855f7', transition: 'width 0.5s ease' }} title={`해외 ${usPercent}%`} />
-              </div>
-              <div style={{ fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 600, display: 'flex', gap: '12px' }}>
-                <span style={{ color: '#60a5fa' }}>🇰🇷 국내주식 {krPercent}% ({formatCurrency(krValuationKRW)})</span>
-                <span style={{ color: '#c084fc' }}>🇺🇸 해외주식 {usPercent}% (${usValuationUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })})</span>
+
+              <div style={{
+                padding: '6px 14px', borderRadius: '12px',
+                background: totalProfitKRW >= 0 ? 'rgba(16, 185, 129, 0.15)' : 'rgba(244, 63, 94, 0.15)',
+                border: `1px solid ${totalProfitKRW >= 0 ? 'rgba(16, 185, 129, 0.4)' : 'rgba(244, 63, 94, 0.4)'}`,
+                display: 'flex', alignItems: 'center', gap: '8px',
+              }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#cbd5e1' }}>총 자산 성과:</span>
+                <span style={{ fontSize: '1rem', fontWeight: 800, color: totalProfitKRW >= 0 ? '#10b981' : '#f43f5e' }}>
+                  {totalReturnPercent >= 0 ? '▲ +' : '▼ '}{totalReturnPercent.toFixed(2)}% ({totalProfitKRW >= 0 ? '+' : ''}{formatCurrency(totalProfitKRW)})
+                </span>
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', textAlign: 'right' }}>
-              <div style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 600 }}>💱 원/달러 환율 민감도 분석</div>
-              <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#22d3ee' }}>
-                환율 10원 상승 시 <span style={{ color: '#34d399', fontWeight: 800 }}>+{formatCurrency(fxSensitivity10Won)}</span> 자산 평가 증대
+            {/* Visual Growth Comparison Bars */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', background: '#020617', padding: '16px', borderRadius: '12px', border: '1px solid rgba(30, 41, 59, 0.8)' }}>
+              {/* Bar 1: Investment Principal */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <span style={{ color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: '#64748b', display: 'inline-block' }} />
+                    투자 원금 (Principal)
+                  </span>
+                  <span style={{ color: '#cbd5e1' }}>{formatCurrency(totalInvestedKRW)}</span>
+                </div>
+                <div style={{ width: '100%', height: '14px', background: 'rgba(30,41,59,0.5)', borderRadius: '9999px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', borderRadius: '9999px', background: 'linear-gradient(90deg, #64748b, #94a3b8)', width: `${investedBarPct}%`, transition: 'width 0.5s ease' }} />
+                </div>
               </div>
-              <div style={{ fontSize: '0.7rem', color: '#64748b' }}>현재 적용 환율: 1 USD = {exchangeRate.toLocaleString()}원</div>
+
+              {/* Bar 2: Current Valuation */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', fontWeight: 700, marginBottom: '6px' }}>
+                  <span style={{ color: totalProfitKRW >= 0 ? '#34d399' : '#fb7185', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: totalProfitKRW >= 0 ? '#10b981' : '#f43f5e', display: 'inline-block' }} />
+                    현재 평가금액 (Current Valuation)
+                  </span>
+                  <span style={{ color: totalProfitKRW >= 0 ? '#34d399' : '#fb7185' }}>
+                    {formatCurrency(totalValuationKRW)} ({totalReturnPercent >= 0 ? '+' : ''}{totalReturnPercent.toFixed(2)}%)
+                  </span>
+                </div>
+                <div style={{ width: '100%', height: '14px', background: 'rgba(30,41,59,0.5)', borderRadius: '9999px', overflow: 'hidden' }}>
+                  <div style={{
+                    height: '100%', borderRadius: '9999px',
+                    background: totalProfitKRW >= 0 ? 'linear-gradient(90deg, #059669, #10b981)' : 'linear-gradient(90deg, #e11d48, #f43f5e)',
+                    width: `${valuationBarPct}%`, transition: 'width 0.5s ease',
+                  }} />
+                </div>
+              </div>
             </div>
           </div>
 
