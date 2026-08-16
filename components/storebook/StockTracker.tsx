@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { StockItem, StockQuote } from '@/lib/stock-types';
-import { fetchUserStocks, addStock, deleteStock } from '@/lib/stock-service';
+import { fetchUserStocks, addStock, deleteStock, syncLocalStocksToSupabase } from '@/lib/stock-service';
 import { formatCurrency } from '@/lib/storebook-utils';
 
 interface StockSearchResult {
@@ -73,6 +73,7 @@ export default function StockTracker() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFetchingQuotes, setIsFetchingQuotes] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Timeframe & Chart Hover State
   const [timeframe, setTimeframe] = useState<Timeframe>('1M');
@@ -311,6 +312,14 @@ export default function StockTracker() {
     setStocks((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // Cloud Sync Handler
+  const handleSyncCloud = async () => {
+    setIsSyncing(true);
+    await syncLocalStocksToSupabase();
+    await loadStocks();
+    setIsSyncing(false);
+  };
+
   // Preset chip select handler
   const handleSelectPreset = (p: typeof PRESET_STOCKS[0]) => {
     setSymbol(p.symbol);
@@ -335,7 +344,20 @@ export default function StockTracker() {
           </span>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleSyncCloud}
+            disabled={isSyncing}
+            style={{
+              padding: '8px 12px', borderRadius: '12px', background: '#020617', border: '1px solid #1e293b',
+              color: '#34d399', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+            title="기기 간 주식 데이터를 클라우드로 동기화합니다"
+          >
+            <span>☁️</span>
+            <span>{isSyncing ? '동기화 중...' : '클라우드 동기화'}</span>
+          </button>
+
           <button
             onClick={() => fetchQuotes(stocks)}
             disabled={isFetchingQuotes}

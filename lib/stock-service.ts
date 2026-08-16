@@ -15,17 +15,19 @@ export async function fetchUserStocks(): Promise<StockItem[]> {
   try {
     if (supabase) {
       const { data, error } = await supabase.from('storebook_stocks').select('*').order('created_at', { ascending: false });
-      if (!error && data && data.length > 0) {
-        return data.map((row: any) => ({
-          id: row.id,
-          symbol: row.symbol,
-          name: row.name,
-          market: row.market as 'KR' | 'US',
-          quantity: Number(row.quantity),
-          avgPrice: Number(row.avg_price),
-          currency: row.currency as 'KRW' | 'USD',
-          createdAt: row.created_at,
-        }));
+      if (!error && data) {
+        if (data.length > 0) {
+          return data.map((row: any) => ({
+            id: row.id,
+            symbol: row.symbol,
+            name: row.name,
+            market: row.market as 'KR' | 'US',
+            quantity: Number(row.quantity),
+            avgPrice: Number(row.avg_price),
+            currency: row.currency as 'KRW' | 'USD',
+            createdAt: row.created_at,
+          }));
+        }
       }
     }
   } catch (e) {
@@ -97,6 +99,35 @@ export async function deleteStock(id: string): Promise<boolean> {
   const updated = current.filter((s) => s.id !== id);
   saveLocalStorageStocks(updated);
   return true;
+}
+
+/**
+ * Sync LocalStorage Stocks to Supabase Cloud DB
+ */
+export async function syncLocalStocksToSupabase(): Promise<number> {
+  if (!supabase) return 0;
+  let count = 0;
+  try {
+    const raw = localStorage.getItem('storebook_stocks_data');
+    if (!raw) return 0;
+    const localStocks: StockItem[] = JSON.parse(raw);
+    for (const s of localStocks) {
+      if (!s.id.startsWith('stock-demo-')) {
+        const { error } = await supabase.from('storebook_stocks').insert({
+          symbol: s.symbol,
+          name: s.name,
+          market: s.market,
+          quantity: s.quantity,
+          avg_price: s.avgPrice,
+          currency: s.currency,
+        });
+        if (!error) count++;
+      }
+    }
+  } catch (e) {
+    console.error('syncLocalStocksToSupabase error', e);
+  }
+  return count;
 }
 
 function getLocalStorageStocks(): StockItem[] {
