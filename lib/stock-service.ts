@@ -1,15 +1,13 @@
 import { supabase } from './supabase';
 import { StockItem } from './stock-types';
 
-export const INITIAL_DEMO_STOCKS: StockItem[] = [
-  { id: 'stock-demo-1', symbol: '005930.KS', name: '삼성전자', market: 'KR', quantity: 35, avgPrice: 68500, currency: 'KRW' },
-  { id: 'stock-demo-2', symbol: 'AAPL', name: 'Apple Inc.', market: 'US', quantity: 12, avgPrice: 175.5, currency: 'USD' },
-  { id: 'stock-demo-3', symbol: 'NVDA', name: 'NVIDIA Corp', market: 'US', quantity: 8, avgPrice: 112.0, currency: 'USD' },
-  { id: 'stock-demo-4', symbol: '005380.KS', name: '현대차', market: 'KR', quantity: 15, avgPrice: 242000, currency: 'KRW' },
-];
+// No more demo stocks fallback - cloud DB is the single source of truth
+export const INITIAL_DEMO_STOCKS: StockItem[] = [];
 
 /**
- * Fetch stocks list from Supabase Cloud DB (year_month = 'STOCKS') or LocalStorage
+ * Fetch stocks list from Supabase Cloud DB (year_month = 'STOCKS')
+ * Falls back to LocalStorage ONLY when Supabase connection itself fails.
+ * When Supabase returns 0 rows, returns empty array (not demo data).
  */
 export async function fetchUserStocks(): Promise<StockItem[]> {
   try {
@@ -21,27 +19,34 @@ export async function fetchUserStocks(): Promise<StockItem[]> {
         .order('created_at', { ascending: false });
 
       if (!error && data) {
-        if (data.length > 0) {
-          return data.map((r: any) => {
-            const parts = (r.category || '').split('|');
-            return {
-              id: r.id,
-              name: r.name,
-              avgPrice: Number(r.amount),
-              symbol: parts[0] || '',
-              quantity: Number(parts[1]) || 1,
-              currency: (parts[2] || 'KRW') as 'KRW' | 'USD',
-              market: (parts[3] || 'KR') as 'KR' | 'US',
-              createdAt: r.created_at,
-            };
-          });
+        // Trust the cloud result, even if 0 rows
+        const cloudStocks = data.map((r: any) => {
+          const parts = (r.category || '').split('|');
+          return {
+            id: r.id,
+            name: r.name,
+            avgPrice: Number(r.amount),
+            symbol: parts[0] || '',
+            quantity: Number(parts[1]) || 1,
+            currency: (parts[2] || 'KRW') as 'KRW' | 'USD',
+            market: (parts[3] || 'KR') as 'KR' | 'US',
+            createdAt: r.created_at,
+          };
+        });
+
+        // Also save to localStorage as local cache
+        if (typeof window !== 'undefined' && cloudStocks.length > 0) {
+          saveLocalStorageStocks(cloudStocks);
         }
+
+        return cloudStocks;
       }
     }
   } catch (e) {
     console.warn('Supabase fetchUserStocks failed, fallback to LocalStorage', e);
   }
 
+  // Only reach here if Supabase connection itself failed
   return getLocalStorageStocks();
 }
 
@@ -103,7 +108,7 @@ export async function addStock(stock: Omit<StockItem, 'id'>): Promise<StockItem>
  */
 export async function deleteStock(id: string): Promise<boolean> {
   try {
-    if (supabase && !id.startsWith('stock-demo-') && !id.startsWith('stock-')) {
+    if (supabase && !id.startsWith('stock-')) {
       const { error } = await supabase
         .from('storebook_transactions')
         .delete()
@@ -132,11 +137,12 @@ export async function syncLocalStocksToSupabase(): Promise<number> {
   if (!supabase) return 0;
   let count = 0;
   try {
-    const raw = localStorage.getItem('storebook_stocks_data');
-    if (!raw) return 0;
-    const localStocks: StockItem[] = JSON.parse(raw);
+    const localStocks = getLocalStorageStocks();
+    if (localStocks.length === 0) return 0;
+
     for (const s of localStocks) {
-      if (!s.id.startsWith('stock-demo-')) {
+      // Only sync local-only items (IDs starting with 'stock-')
+      if (s.id.startsWith('stock-')) {
         const encodedCategory = `${s.symbol}|${s.quantity}|${s.currency}|${s.market}`;
         const { error } = await supabase.from('storebook_transactions').insert({
           year_month: 'STOCKS',
@@ -157,14 +163,18 @@ export async function syncLocalStocksToSupabase(): Promise<number> {
 }
 
 function getLocalStorageStocks(): StockItem[] {
-  if (typeof window === 'undefined') return INITIAL_DEMO_STOCKS;
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem('storebook_stocks_data');
-    if (raw) return JSON.parse(raw);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Filter out old demo stocks
+      return parsed.filter((s: StockItem) => !s.id.startsWith('stock-demo-'));
+    }
   } catch (e) {
     console.error('LocalStorage stock error', e);
   }
-  return INITIAL_DEMO_STOCKS;
+  return [];
 }
 
 function saveLocalStorageStocks(stocks: StockItem[]) {
