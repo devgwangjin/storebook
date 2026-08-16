@@ -9,24 +9,32 @@ export const INITIAL_DEMO_STOCKS: StockItem[] = [
 ];
 
 /**
- * Fetch stocks list from Supabase or LocalStorage
+ * Fetch stocks list from Supabase Cloud DB (year_month = 'STOCKS') or LocalStorage
  */
 export async function fetchUserStocks(): Promise<StockItem[]> {
   try {
     if (supabase) {
-      const { data, error } = await supabase.from('storebook_stocks').select('*').order('created_at', { ascending: false });
+      const { data, error } = await supabase
+        .from('storebook_transactions')
+        .select('*')
+        .eq('year_month', 'STOCKS')
+        .order('created_at', { ascending: false });
+
       if (!error && data) {
         if (data.length > 0) {
-          return data.map((row: any) => ({
-            id: row.id,
-            symbol: row.symbol,
-            name: row.name,
-            market: row.market as 'KR' | 'US',
-            quantity: Number(row.quantity),
-            avgPrice: Number(row.avg_price),
-            currency: row.currency as 'KRW' | 'USD',
-            createdAt: row.created_at,
-          }));
+          return data.map((r: any) => {
+            const parts = (r.category || '').split('|');
+            return {
+              id: r.id,
+              name: r.name,
+              avgPrice: Number(r.amount),
+              symbol: parts[0] || '',
+              quantity: Number(parts[1]) || 1,
+              currency: (parts[2] || 'KRW') as 'KRW' | 'USD',
+              market: (parts[3] || 'KR') as 'KR' | 'US',
+              createdAt: r.created_at,
+            };
+          });
         }
       }
     }
@@ -38,37 +46,45 @@ export async function fetchUserStocks(): Promise<StockItem[]> {
 }
 
 /**
- * Add a new Stock to Supabase or LocalStorage
+ * Add a new Stock to Supabase Cloud DB & LocalStorage
  */
 export async function addStock(stock: Omit<StockItem, 'id'>): Promise<StockItem> {
   const newId = 'stock-' + Date.now() + '-' + Math.random().toString(36).substring(2, 7);
+  const encodedCategory = `${stock.symbol}|${stock.quantity}|${stock.currency}|${stock.market}`;
 
   try {
     if (supabase) {
       const { data, error } = await supabase
-        .from('storebook_stocks')
+        .from('storebook_transactions')
         .insert({
-          symbol: stock.symbol,
+          year_month: 'STOCKS',
+          type: 'income',
           name: stock.name,
-          market: stock.market,
-          quantity: stock.quantity,
-          avg_price: stock.avgPrice,
-          currency: stock.currency,
+          amount: stock.avgPrice,
+          category: encodedCategory,
+          is_recurring: false,
+          date: new Date().toISOString().split('T')[0],
         })
         .select()
         .single();
 
       if (!error && data) {
-        return {
+        const parts = (data.category || '').split('|');
+        const created: StockItem = {
           id: data.id,
-          symbol: data.symbol,
           name: data.name,
-          market: data.market,
-          quantity: Number(data.quantity),
-          avgPrice: Number(data.avg_price),
-          currency: data.currency,
+          avgPrice: Number(data.amount),
+          symbol: parts[0] || stock.symbol,
+          quantity: Number(parts[1]) || stock.quantity,
+          currency: (parts[2] || stock.currency) as 'KRW' | 'USD',
+          market: (parts[3] || stock.market) as 'KR' | 'US',
           createdAt: data.created_at,
         };
+        // Update local cache
+        const current = getLocalStorageStocks();
+        current.unshift(created);
+        saveLocalStorageStocks(current);
+        return created;
       }
     }
   } catch (e) {
@@ -83,13 +99,21 @@ export async function addStock(stock: Omit<StockItem, 'id'>): Promise<StockItem>
 }
 
 /**
- * Delete Stock from Supabase or LocalStorage
+ * Delete Stock from Supabase Cloud DB & LocalStorage
  */
 export async function deleteStock(id: string): Promise<boolean> {
   try {
     if (supabase && !id.startsWith('stock-demo-') && !id.startsWith('stock-')) {
-      const { error } = await supabase.from('storebook_stocks').delete().eq('id', id);
-      if (!error) return true;
+      const { error } = await supabase
+        .from('storebook_transactions')
+        .delete()
+        .eq('id', id);
+      if (!error) {
+        const current = getLocalStorageStocks();
+        const updated = current.filter((s) => s.id !== id);
+        saveLocalStorageStocks(updated);
+        return true;
+      }
     }
   } catch (e) {
     console.warn('Supabase deleteStock failed', e);
@@ -113,13 +137,15 @@ export async function syncLocalStocksToSupabase(): Promise<number> {
     const localStocks: StockItem[] = JSON.parse(raw);
     for (const s of localStocks) {
       if (!s.id.startsWith('stock-demo-')) {
-        const { error } = await supabase.from('storebook_stocks').insert({
-          symbol: s.symbol,
+        const encodedCategory = `${s.symbol}|${s.quantity}|${s.currency}|${s.market}`;
+        const { error } = await supabase.from('storebook_transactions').insert({
+          year_month: 'STOCKS',
+          type: 'income',
           name: s.name,
-          market: s.market,
-          quantity: s.quantity,
-          avg_price: s.avgPrice,
-          currency: s.currency,
+          amount: s.avgPrice,
+          category: encodedCategory,
+          is_recurring: false,
+          date: new Date().toISOString().split('T')[0],
         });
         if (!error) count++;
       }
