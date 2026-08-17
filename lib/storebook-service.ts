@@ -44,7 +44,7 @@ export async function fetchMonthData(yearMonth: string): Promise<MonthData> {
         .eq('year_month', yearMonth)
         .single();
 
-      // 2. Fetch transactions for yearMonth
+      // 2. Fetch transactions for yearMonth (exclude stock entries)
       const { data: txData, error: txErr } = await supabase
         .from('storebook_transactions')
         .select('*')
@@ -53,7 +53,10 @@ export async function fetchMonthData(yearMonth: string): Promise<MonthData> {
 
       if (!summaryErr || !txErr) {
         const carryOver = summaryData ? Number(summaryData.carry_over) : 0;
-        const transactions: Transaction[] = (txData || []).map((row: any) => ({
+        const transactions: Transaction[] = (txData || [])
+          // Filter out any stock entries that leaked into normal months
+          .filter((row: any) => !(row.category || '').includes('|'))
+          .map((row: any) => ({
           id: row.id,
           type: row.type,
           name: row.name,
