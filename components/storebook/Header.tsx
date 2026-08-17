@@ -74,7 +74,7 @@ export default function Header({
           <h1 style={{ fontSize: 'clamp(1.25rem, 1.5vw, 1.75rem)', fontWeight: 800, letterSpacing: '-0.02em', color: '#f1f5f9' }}>
             storebook
           </h1>
-          <p style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>스마트 가계부 & 자산 트래커</p>
+          <p style={{ fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500 }}>가계부였던것</p>
         </div>
       </div>
 
